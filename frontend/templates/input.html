@@ -23,6 +23,7 @@
     <button class="tab-btn" data-tab="tab-efficiency">2. Efficiency</button>
     <button class="tab-btn" data-tab="tab-product">3. Product Selection</button>
     <button class="tab-btn" data-tab="tab-auxiliary">4. Auxiliary Load</button>
+    <button class="tab-btn" data-tab="tab-reactive">5. Reactive Power</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -746,6 +747,142 @@
     </div>
 </div>
 
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 5 — Reactive Power
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-reactive">
+    <div class="eff-two-col">
+        <!-- LEFT: S,P,Q Tables -->
+        <div class="eff-two-col__left">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--main">S,P,Q</span>
+                Reactive Power Analysis
+            </div>
+
+            <!-- Input: Reactive Power Buffer -->
+            <div class="form-section form-section--compact" style="margin-bottom:16px;">
+                <div class="form-section-title">Reactive Power Buffer (F5)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="form-group form-group--compact">
+                        <label for="rpBufferPct">Q Buffer <span class="unit">%</span></label>
+                        <input type="number" id="rpBufferPct" name="rp_buffer_pct" value="5" min="0" max="50" step="1" />
+                        <span class="field-hint">Altitude/derating margin for reactive power</span>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="rpLeadLag">Power Factor Type</label>
+                        <select id="rpLeadLag" name="rp_lead_lag">
+                            <option value="lagging" selected>Lagging (inductive)</option>
+                            <option value="leading">Leading (capacitive)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POI → PCS (Top-Down) -->
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">POI → PCS (Top-Down)</div>
+                <table class="eng-table" style="width:100%;">
+                    <thead>
+                        <tr><th>Level</th><th>P (kW)</th><th>Q (kVAR)</th><th>S (kVA)</th><th>PF</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="eng-table__label">@ POI (HV)</td>
+                            <td class="eng-table__value" id="rp-poi-p">—</td>
+                            <td class="eng-table__value" id="rp-poi-q">—</td>
+                            <td class="eng-table__value" id="rp-poi-s">—</td>
+                            <td class="eng-table__value" id="rp-poi-pf">—</td></tr>
+                        <tr><td class="eng-table__label">@ MV Bus</td>
+                            <td class="eng-table__value" id="rp-mv-p">—</td>
+                            <td class="eng-table__value" id="rp-mv-q">—</td>
+                            <td class="eng-table__value" id="rp-mv-s">—</td>
+                            <td class="eng-table__value" id="rp-mv-pf">—</td></tr>
+                        <tr><td class="eng-table__label">@ Inverter (PCS)</td>
+                            <td class="eng-table__value" id="rp-inv-p">—</td>
+                            <td class="eng-table__value" id="rp-inv-q">—</td>
+                            <td class="eng-table__value" id="rp-inv-s">—</td>
+                            <td class="eng-table__value" id="rp-inv-pf">—</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PCS Capacity Check -->
+            <div class="form-section form-section--compact" style="margin-top:12px;">
+                <div class="form-section-title">PCS Capacity Check</div>
+                <table class="eng-table" style="width:100%;">
+                    <tbody>
+                        <tr><td class="eng-table__label">Required S (Inverter)</td>
+                            <td class="eng-table__value" id="rp-req-s">—</td><td class="eng-table__unit">kVA</td></tr>
+                        <tr><td class="eng-table__label">Available S (PCS total)</td>
+                            <td class="eng-table__value" id="rp-avail-s">—</td><td class="eng-table__unit">kVA</td></tr>
+                        <tr><td class="eng-table__label">With Buffer (<span id="rp-buf-label">5%</span>)</td>
+                            <td class="eng-table__value" id="rp-req-s-buf">—</td><td class="eng-table__unit">kVA</td></tr>
+                        <tr><td class="eng-table__label">Margin</td>
+                            <td class="eng-table__value" id="rp-margin">—</td><td class="eng-table__unit">%</td></tr>
+                        <tr><td class="eng-table__label">Sufficient?</td>
+                            <td class="eng-table__value" id="rp-sufficient">—</td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- VERTICAL DIVIDER -->
+        <div class="eff-two-col__divider"></div>
+
+        <!-- RIGHT: Single Line Diagram -->
+        <div class="eff-two-col__right">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--aux">SLD</span>
+                Power Flow Diagram
+            </div>
+            <div id="rpDiagram" style="font-family:'SF Mono','Consolas',monospace;font-size:11px;line-height:1.6;background:#f8f9fa;border-radius:8px;padding:16px;white-space:pre;overflow-x:auto;">
+  ┌─────────────┐
+  │    GRID      │
+  └──────┬───────┘
+         │  S=<span id="sld-poi-s">—</span> kVA
+         │  P=<span id="sld-poi-p">—</span> kW
+         │  Q=<span id="sld-poi-q">—</span> kVAR
+         │  PF=<span id="sld-poi-pf">—</span>
+  ┌──────┴───────┐
+  │  HV TR       │  loss: <span id="sld-hv-loss">—</span> kW
+  │  Q_hv: <span id="sld-hv-q">—</span>  │
+  └──────┬───────┘
+         │
+  ═══════╪═══════  POI
+         │
+  ┌──────┴───────┐
+  │  MV Bus      │
+  │  PF=<span id="sld-mv-pf">—</span>    │
+  └──────┬───────┘
+         │  S=<span id="sld-mv-s">—</span> kVA
+         │  P=<span id="sld-mv-p">—</span> kW
+         │  Q=<span id="sld-mv-q">—</span> kVAR
+  ┌──────┴───────┐
+  │  MV TR       │
+  └──────┬───────┘
+         │
+  ┌──────┴───────┐
+  │  PCS/INV     │  <span id="sld-pcs-count">—</span> units
+  │  S=<span id="sld-inv-s">—</span> kVA  │
+  │  Avail: <span id="sld-avail">—</span> │
+  └──────┬───────┘
+         │
+  ┌──────┴───────┐
+  │  BATTERY     │
+  │  <span id="sld-links">—</span> LINKs  │
+  └──────────────┘</div>
+
+            <div style="margin-top:12px;font-size:12px;color:#666;">
+                <strong>Legend:</strong>
+                S = Apparent Power (kVA),
+                P = Active Power (kW),
+                Q = Reactive Power (kVAR),
+                PF = Power Factor.
+                <span id="rp-lead-lag-label" style="font-weight:600;color:var(--color-primary);">Lagging (inductive)</span>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      Bottom Action Bar

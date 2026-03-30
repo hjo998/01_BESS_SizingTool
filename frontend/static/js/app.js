@@ -1944,6 +1944,8 @@
         setText('res-pfMv',          rp ? rp.pf_at_mv.toFixed(4) : '—');
         setText('res-availableS',    rp ? rp.available_s_total_kva.toFixed(1) : '—');
         setText('res-gridKvar',      rp ? rp.grid_kvar.toFixed(1) : '—');
+        // F2+F5: Update Reactive Power Tab
+        updateReactivePowerTab(result);
         var pcsSuf = document.getElementById('res-pcsSufficient');
         if (pcsSuf && rp) {
             pcsSuf.innerHTML = rp.is_pcs_sufficient
@@ -2656,6 +2658,99 @@
             }
         }, 200);
     });
+
+    // ═══════════════════════════════════════════════════════════
+    // F2+F5: Reactive Power Tab Display
+    // ═══════════════════════════════════════════════════════════
+    function updateReactivePowerTab(result) {
+        var rp = result.reactive_power;
+        var bat = result.battery || {};
+        var pcs = result.pcs || {};
+        var sum = result.summary || {};
+        var eff = result.efficiency || {};
+        if (!rp) return;
+
+        var bufPct = parseFloat(document.getElementById('rpBufferPct') ? document.getElementById('rpBufferPct').value : 5) || 5;
+        var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
+
+        var pPoi = sum.required_power_mw ? sum.required_power_mw * 1000 : 0;
+        var sPoi = rp.total_apparent_power_poi_kva || 0;
+        var qGrid = rp.grid_kvar || 0;
+        var pfPoi = pPoi > 0 ? (pPoi / sPoi) : 0;
+
+        // MV level: reconstruct from result
+        var pLossHv = rp.p_loss_hv_kw || 0;
+        var pAux = bat.aux_power_peak_mw ? bat.aux_power_peak_mw * 1000 : 0;
+        var pMv = pPoi + pLossHv + pAux;
+        var qHv = rp.hv_tr_kvar || 0;
+        // MV transformer Q (estimate from impedance)
+        var qMvTr = sPoi * 0.08; // default impedance
+        var qMv = qGrid + qHv + qMvTr;
+        var sMv = Math.sqrt(pMv * pMv + qMv * qMv);
+        var pfMv = rp.pf_at_mv || (pMv / sMv);
+
+        // Inverter level
+        var sInv = rp.total_s_inverter_kva || 0;
+        var pInv = sInv * pfMv; // approximate
+        var qInv = Math.sqrt(Math.max(sInv * sInv - pInv * pInv, 0));
+
+        // Leading sign convention
+        var qSign = leadLag === 'leading' ? -1 : 1;
+
+        // Populate POI → PCS table
+        setText('rp-poi-p', pPoi.toFixed(1));
+        setText('rp-poi-q', (qGrid * qSign).toFixed(1));
+        setText('rp-poi-s', sPoi.toFixed(1));
+        setText('rp-poi-pf', pfPoi.toFixed(4));
+
+        setText('rp-mv-p', pMv.toFixed(1));
+        setText('rp-mv-q', (qMv * qSign).toFixed(1));
+        setText('rp-mv-s', sMv.toFixed(1));
+        setText('rp-mv-pf', pfMv.toFixed(4));
+
+        setText('rp-inv-p', pInv.toFixed(1));
+        setText('rp-inv-q', (qInv * qSign).toFixed(1));
+        setText('rp-inv-s', sInv.toFixed(1));
+        setText('rp-inv-pf', pfMv.toFixed(4));
+
+        // PCS Capacity Check
+        var sAvail = rp.available_s_total_kva || 0;
+        var sReqBuf = sInv * (1 + bufPct / 100);
+        var margin = sAvail > 0 ? ((sAvail - sReqBuf) / sAvail * 100) : 0;
+        var sufficient = sAvail >= sReqBuf;
+
+        setText('rp-req-s', sInv.toFixed(1));
+        setText('rp-avail-s', sAvail.toFixed(1));
+        setText('rp-buf-label', bufPct + '%');
+        setText('rp-req-s-buf', sReqBuf.toFixed(1));
+        setText('rp-margin', margin.toFixed(1));
+        var suffEl = document.getElementById('rp-sufficient');
+        if (suffEl) {
+            suffEl.innerHTML = sufficient
+                ? '<span style="color:#16a34a;font-weight:700;">YES ✓</span>'
+                : '<span style="color:#dc2626;font-weight:700;">NO ✗</span>';
+        }
+
+        // SLD Diagram values
+        setText('sld-poi-s', sPoi.toFixed(0));
+        setText('sld-poi-p', pPoi.toFixed(0));
+        setText('sld-poi-q', (qGrid * qSign).toFixed(0));
+        setText('sld-poi-pf', pfPoi.toFixed(3));
+        setText('sld-hv-loss', pLossHv.toFixed(1));
+        setText('sld-hv-q', qHv.toFixed(0));
+        setText('sld-mv-pf', pfMv.toFixed(3));
+        setText('sld-mv-s', sMv.toFixed(0));
+        setText('sld-mv-p', pMv.toFixed(0));
+        setText('sld-mv-q', (qMv * qSign).toFixed(0));
+        setText('sld-inv-s', sInv.toFixed(0));
+        setText('sld-avail', sAvail.toFixed(0));
+        setText('sld-pcs-count', pcs.no_of_pcs || '—');
+        setText('sld-links', bat.no_of_links || '—');
+
+        // Lead/Lag label
+        var llLabel = document.getElementById('rp-lead-lag-label');
+        if (llLabel) llLabel.textContent = leadLag === 'leading' ? 'Leading (capacitive)' : 'Lagging (inductive)';
+    }
 
     // ═══════════════════════════════════════════════════════════
     // F4: Definition Tooltips
