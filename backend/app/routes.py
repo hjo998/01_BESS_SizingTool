@@ -92,12 +92,28 @@ def rte_page():
 
 @bp.route('/api/rte/designs', methods=['GET'])
 def api_rte_designs():
-    """Public read-only list of designs for RTE page (no login required)."""
-    from .shared_models import list_designs
+    """Public read-only list of designs for RTE page (no login required).
+
+    Unlike /api/shared/designs, this includes input_data (needed for
+    loading efficiency values) and requires no authentication.
+    """
+    from .shared_models import get_db
     db_path = current_app.config['DATABASE']
     try:
-        result = list_designs(db_path)
-        return jsonify(result.get('designs', [])), 200
+        conn = get_db(db_path)
+        rows = conn.execute(
+            "SELECT id, project_name, created_at, input_data FROM designs ORDER BY updated_at DESC LIMIT 50"
+        ).fetchall()
+        designs = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d['input_data'] = json.loads(d['input_data']) if d.get('input_data') else {}
+            except (json.JSONDecodeError, TypeError):
+                d['input_data'] = {}
+            designs.append(d)
+        conn.close()
+        return jsonify(designs), 200
     except Exception:
         return jsonify([]), 200
 

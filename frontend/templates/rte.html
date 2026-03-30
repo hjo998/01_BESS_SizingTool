@@ -195,18 +195,20 @@
         var d;
         try { d = JSON.parse(opt.dataset.design); } catch (e) { return; }
         var inp = (d.input_data || {});
+        // Support both nested (inp.efficiency.xxx) and flat (inp.xxx) structures
         var eff = inp.efficiency || {};
+        function v(key) { return eff[key] || inp[key]; }
         // Fill efficiency inputs
         var map = {
-            rteHvAc: eff.hv_ac_cabling, rteHvTr: eff.hv_transformer,
-            rteMvAc: eff.mv_ac_cabling, rteMvTr: eff.mv_transformer,
-            rteLvCab: eff.lv_cabling, rtePcs: eff.pcs_efficiency,
-            rteDcCab: eff.dc_cabling,
+            rteHvAc: v('hv_ac_cabling'), rteHvTr: v('hv_transformer'),
+            rteMvAc: v('mv_ac_cabling'), rteMvTr: v('mv_transformer'),
+            rteLvCab: v('lv_cabling'), rtePcs: v('pcs_efficiency'),
+            rteDcCab: v('dc_cabling'),
         };
         var bat = inp.battery_loss || {};
-        map.rteAppliedDod = bat.applied_dod;
-        map.rteLossFactor = bat.loss_factors;
-        map.rteMbms = bat.mbms_consumption;
+        map.rteAppliedDod = bat.applied_dod || inp.applied_dod;
+        map.rteLossFactor = bat.loss_factors || inp.loss_factors;
+        map.rteMbms = bat.mbms_consumption || inp.mbms_consumption;
         Object.keys(map).forEach(function (id) {
             var el = document.getElementById(id);
             if (el && map[id] != null) el.value = map[id];
