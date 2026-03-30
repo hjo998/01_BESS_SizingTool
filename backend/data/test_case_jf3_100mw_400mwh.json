@@ -1,0 +1,191 @@
+{
+  "description": "JF3 DC LINK Pairing - M12 System, 100MW/400MWh @POI, 45°C, Peak Shifting",
+  "input": {
+    "project_title": "JF3 DC LINK Pairing",
+    "customer": "Internal",
+    "project_life_yr": 20,
+    "poi": "HV",
+    "required_power_mw": 100,
+    "required_energy_mwh": 400,
+    "power_factor": 0.95,
+    "aux_power_source": "Battery",
+    "scope_of_supply": "BAT+PCS+MVT+EMS",
+    "application": "Peak Shifting (PS)",
+    "poi_voltage": "230 kV",
+    "temperature_c": 45,
+    "altitude": "<1000m",
+    "measurement_method": "CPCV/CP",
+    "efficiency": {
+      "hv_ac_cabling": 0.999,
+      "hv_transformer": 0.995,
+      "mv_ac_cabling": 0.999,
+      "mv_transformer": 0.993,
+      "lv_cabling": 0.996,
+      "pcs_efficiency": 0.985,
+      "dc_cabling": 0.999,
+      "total_bat_poi": 0.9663891993882308
+    },
+    "aux_efficiency": {
+      "branching_point": "MV",
+      "total_aux_eff_mv": 0.984015,
+      "total_dc_to_aux_eff": 0.957634379502525
+    },
+    "battery_loss": {
+      "applied_dod": 0.99,
+      "loss_factors": 0.98802,
+      "mbms_consumption": 0.9990000000000001,
+      "total_battery_loss_factor": 0.9771616602000001
+    },
+    "total_efficiency_up_to_poi": 0.944318,
+    "product_type_a": "JF3 0.25 DC LINK",
+    "pcs_type": "EPC Power M 6stc + JF3 5.5 x 2sets",
+    "cycle_per_day": 1,
+    "operation_days_per_year": 365
+  },
+  "expected_design_tool": {
+    "required_power_dc_mw": 104.345,
+    "required_energy_dc_mwh": 433.21,
+    "retention_rate_pct": 60,
+    "pcs_unit_power_mw": 3.15756,
+    "no_of_pcs": 39,
+    "no_of_rack_per_blink": 6,
+    "product": "JF3 0.25 DC LINK"
+  },
+  "expected_result": {
+    "no_of_links": 78,
+    "installation_energy_dc": 433.21200000000005,
+    "dischargeable_energy_dc": 423.31815713856247,
+    "req_power_dc": 104.3446967674908,
+    "req_energy_dc": 417.8121466160309,
+    "cp_rate_dc": 0.240862895689618,
+    "no_of_power_block": 39,
+    "no_of_mvt": 19.5,
+    "qty_of_racks": 468,
+    "dischargeable_energy_poi": 409.10200572921536,
+    "duration_bol": 4.091020057292154,
+    "retention_by_year": {
+      "0": {
+        "retention_pct": 100,
+        "total_energy_mwh": 433.2,
+        "dischargeable_energy_poi_mwh": 405.6
+      },
+      "1": {
+        "retention_pct": 98.1,
+        "total_energy_mwh": 424.9,
+        "dischargeable_energy_poi_mwh": 397.9
+      },
+      "2": {
+        "retention_pct": 95.7,
+        "total_energy_mwh": 414.5,
+        "dischargeable_energy_poi_mwh": 388.2
+      },
+      "3": {
+        "retention_pct": 93.7,
+        "total_energy_mwh": 405.9,
+        "dischargeable_energy_poi_mwh": 380.1
+      },
+      "4": {
+        "retention_pct": 91.9,
+        "total_energy_mwh": 398.1,
+        "dischargeable_energy_poi_mwh": 372.8
+      },
+      "5": {
+        "retention_pct": 90.2,
+        "total_energy_mwh": 390.7,
+        "dischargeable_energy_poi_mwh": 365.9
+      },
+      "6": {
+        "retention_pct": 88.6,
+        "total_energy_mwh": 383.8,
+        "dischargeable_energy_poi_mwh": 359.4
+      },
+      "7": {
+        "retention_pct": 87.2,
+        "total_energy_mwh": 377.7,
+        "dischargeable_energy_poi_mwh": 353.7
+      },
+      "8": {
+        "retention_pct": 85.8,
+        "total_energy_mwh": 371.6,
+        "dischargeable_energy_poi_mwh": 348
+      },
+      "9": {
+        "retention_pct": 84.4,
+        "total_energy_mwh": 365.6,
+        "dischargeable_energy_poi_mwh": 342.4
+      },
+      "10": {
+        "retention_pct": 83.2,
+        "total_energy_mwh": 360.4,
+        "dischargeable_energy_poi_mwh": 337.5
+      },
+      "11": {
+        "retention_pct": 81.9,
+        "total_energy_mwh": 354.8,
+        "dischargeable_energy_poi_mwh": 332.2
+      },
+      "12": {
+        "retention_pct": 80.7,
+        "total_energy_mwh": 349.6,
+        "dischargeable_energy_poi_mwh": 327.3
+      },
+      "13": {
+        "retention_pct": 79.6,
+        "total_energy_mwh": 344.8,
+        "dischargeable_energy_poi_mwh": 322.9
+      },
+      "14": {
+        "retention_pct": 78.5,
+        "total_energy_mwh": 340,
+        "dischargeable_energy_poi_mwh": 318.4
+      },
+      "15": {
+        "retention_pct": 77.4,
+        "total_energy_mwh": 335.3,
+        "dischargeable_energy_poi_mwh": 314
+      },
+      "16": {
+        "retention_pct": 76.4,
+        "total_energy_mwh": 330.9,
+        "dischargeable_energy_poi_mwh": 309.9
+      },
+      "17": {
+        "retention_pct": 75.4,
+        "total_energy_mwh": 326.6,
+        "dischargeable_energy_poi_mwh": 305.8
+      },
+      "18": {
+        "retention_pct": 74.4,
+        "total_energy_mwh": 322.3,
+        "dischargeable_energy_poi_mwh": 301.8
+      },
+      "19": {
+        "retention_pct": 73.5,
+        "total_energy_mwh": 318.4,
+        "dischargeable_energy_poi_mwh": 298.1
+      },
+      "20": {
+        "retention_pct": 72.6,
+        "total_energy_mwh": 314.5,
+        "dischargeable_energy_poi_mwh": 294.5
+      }
+    }
+  },
+  "expected_reactive_power": {
+    "total_apparent_power_poi_kva": 105263.15789473684,
+    "grid_kvar": 32868.41051788631,
+    "hv_tr_kvar": 14735.884272785424,
+    "pf_at_mv": 0.9029794627912975,
+    "total_s_inverter_kva": 116669.30304186013,
+    "available_s_total_kva": 125658
+  },
+  "expected_summary": {
+    "installed_energy_dc": 433.21,
+    "usable_energy_poi": 405.6,
+    "no_of_links": 78,
+    "inverter_size_mva": 3222,
+    "no_of_mvt": 20,
+    "hv_tr_nominal_mva": "105.27 MVA",
+    "aux_consumption_mw": "0.83 MW"
+  }
+}

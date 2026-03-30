@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Cases{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">Case Comparison</div>
+    <div class="page-subtitle">Side-by-side comparison of selected sizing cases.</div>
+</div>
+
+<div class="action-bar">
+    <a href="/project/{{ project_id }}/cases" class="btn btn--ghost">&larr; Back to Cases</a>
+    <button class="btn btn--secondary" id="btnExportExcel">Export Comparison Excel</button>
+</div>
+
+<!-- Comparison Table -->
+<div class="compare-section">
+    <div class="compare-section__title">Key Metrics Comparison</div>
+    <div class="compare-table-wrap">
+        <table class="compare-table" id="compareTable">
+            <thead id="compareHead"></thead>
+            <tbody id="compareBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Retention Chart Overlay -->
+<div class="compare-section">
+    <div class="compare-section__title">Retention Curve Overlay</div>
+    <div class="compare-chart-wrap">
+        <canvas id="retentionChart" height="320"></canvas>
+    </div>
+</div>
+
+<!-- Detailed per-case cards -->
+<div class="compare-section">
+    <div class="compare-section__title">Detailed Results</div>
+    <div class="compare-details" id="compareDetails"></div>
+</div>
+
+<div class="loading-spinner" id="loadingSpinner">Loading comparison data...</div>
+
+<style>
+.action-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--transition); text-decoration: none; }
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--primary:hover { background: var(--color-primary-dk); }
+.btn--secondary { background: var(--color-dark-mid); color: #fff; }
+.btn--secondary:hover { background: var(--color-dark); }
+.btn--ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.btn--ghost:hover { background: var(--color-bg); color: var(--color-dark); text-decoration: none; }
+
+.compare-section {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+.compare-section__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-dark);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--color-primary);
+}
+
+.compare-table-wrap { overflow-x: auto; }
+.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.compare-table th, .compare-table td {
+    padding: 10px 14px;
+    border: 1px solid var(--color-border);
+    text-align: right;
+}
+.compare-table th {
+    background: var(--color-teal);
+    color: #fff;
+    font-weight: 600;
+    text-align: center;
+    position: sticky;
+    top: 0;
+}
+.compare-table th:first-child { text-align: left; }
+.compare-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    background: var(--color-bg);
+    white-space: nowrap;
+}
+.compare-table tr:nth-child(even) td { background: #FAFAFA; }
+.compare-table tr:nth-child(even) td:first-child { background: #F0F0F0; }
+.compare-table .best-value { color: var(--color-success); font-weight: 700; }
+.compare-table .section-row td {
+    background: var(--color-primary) !important;
+    color: #fff;
+    font-weight: 700;
+    text-align: left;
+}
+
+.compare-chart-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.compare-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+.detail-card {
+    background: var(--color-bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    border-left: 4px solid var(--color-primary);
+}
+.detail-card__name { font-weight: 700; margin-bottom: 8px; font-size: 1rem; }
+.detail-card__item { display: flex; justify-content: space-between; padding: 3px 0; font-size: 0.82rem; }
+.detail-card__label { color: var(--color-text-muted); }
+.detail-card__value { font-weight: 600; font-family: var(--font-mono); }
+
+.loading-spinner { text-align: center; color: var(--color-text-muted); padding: 40px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var PROJECT_ID = {{ project_id }};
+    var CASE_IDS = [];
+    var casesData = [];
+
+    // Chart.js colors for up to 5 cases
+    var COLORS = ['#A50034', '#0069D9', '#1E7E34', '#D39E00', '#6F42C1'];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Parse case IDs from URL
+        var params = new URLSearchParams(window.location.search);
+        var idsStr = params.get('cases') || '';
+        CASE_IDS = idsStr.split(',').map(Number).filter(function(n) { return n > 0; });
+
+        if (CASE_IDS.length < 2) {
+            document.getElementById('loadingSpinner').textContent = 'Select at least 2 cases to compare.';
+            return;
+        }
+
+        loadComparison();
+        document.getElementById('btnExportExcel').addEventListener('click', exportExcel);
+    });
+
+    function loadComparison() {
+        fetch('/api/projects/' + PROJECT_ID + '/compare', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_ids: CASE_IDS })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('loadingSpinner').style.display = 'none';
+            casesData = data.cases || [];
+            if (casesData.length < 2) {
+                document.getElementById('loadingSpinner').style.display = 'block';
+                document.getElementById('loadingSpinner').textContent = 'Need at least 2 calculated cases to compare.';
+                return;
+            }
+            buildComparisonTable(casesData);
+            buildRetentionChart(casesData);
+            buildDetailCards(casesData);
+        })
+        .catch(function(err) {
+            document.getElementById('loadingSpinner').textContent = 'Error loading comparison: ' + err;
+        });
+    }
+
+    function buildComparisonTable(cases) {
+        var head = document.getElementById('compareHead');
+        var body = document.getElementById('compareBody');
+
+        // Header row
+        var headerHtml = '<tr><th>Metric</th>';
+        cases.forEach(function(c) {
+            headerHtml += '<th>' + escHtml(c.case_name) + '</th>';
+        });
+        headerHtml += '</tr>';
+        head.innerHTML = headerHtml;
+
+        // Metric rows
+        var metrics = [
+            { section: 'System Configuration' },
+            { key: 'product_type', label: 'Battery Product', path: 'input.product_type', fmt: 'text' },
+            { key: 'pcs_type', label: 'PCS Configuration', path: 'input.pcs_type', fmt: 'text' },
+            { key: 'temperature_c', label: 'Temperature (°C)', path: 'input.temperature_c', fmt: 'int' },
+            { section: 'Requirements' },
+            { key: 'power_mw', label: 'Required Power @POI (MW)', path: 'input.required_power_mw', fmt: 'num2' },
+            { key: 'energy_mwh', label: 'Required Energy @POI (MWh)', path: 'input.required_energy_mwh', fmt: 'num2' },
+            { section: 'Sizing Results' },
+            { key: 'no_of_pcs', label: 'No. of PCS', path: 'result.battery.no_of_pcs', fmt: 'int', lower: true },
+            { key: 'no_of_links', label: 'No. of LINKs', path: 'result.battery.no_of_links', fmt: 'int', lower: true },
+            { key: 'no_of_racks', label: 'No. of Racks', path: 'result.battery.no_of_racks', fmt: 'int', lower: true },
+            { key: 'inst_energy', label: 'Installation Energy DC (MWh)', path: 'result.battery.installation_energy_dc_mwh', fmt: 'num2' },
+            { key: 'disc_energy', label: 'Dischargeable @POI (MWh)', path: 'result.battery.dischargeable_energy_poi_mwh', fmt: 'num2', higher: true },
+            { key: 'duration_bol', label: 'Duration @BOL (hr)', path: 'result.battery.duration_bol_hr', fmt: 'num2', higher: true },
+            { key: 'cp_rate', label: 'CP Rate', path: 'result.battery.cp_rate', fmt: 'num4' },
+            { section: 'Efficiency' },
+            { key: 'bat_poi_eff', label: 'Bat→POI Efficiency (%)', path: 'result.efficiency.total_bat_poi_eff', fmt: 'pct', higher: true },
+            { key: 'total_eff', label: 'Total Efficiency (%)', path: 'result.efficiency.total_efficiency', fmt: 'pct', higher: true },
+            { key: 'system_rte', label: 'System RTE (%)', path: 'result.rte.system_rte', fmt: 'pct', higher: true },
+            { section: 'Retention' },
+            { key: 'ret_y10', label: 'Retention @Y10 (%)', path: 'result.retention.retention_by_year.10.retention_pct', fmt: 'num2', higher: true },
+            { key: 'ret_y20', label: 'Retention @Y20 (%)', path: 'result.retention.retention_by_year.20.retention_pct', fmt: 'num2', higher: true },
+        ];
+
+        var bodyHtml = '';
+        metrics.forEach(function(m) {
+            if (m.section) {
+                bodyHtml += '<tr class="section-row"><td colspan="' + (cases.length + 1) + '">' + m.section + '</td></tr>';
+                return;
+            }
+
+            var values = cases.map(function(c) { return getNestedValue(c, m.path); });
+
+            // Find best value
+            var numericVals = values.map(function(v) { return typeof v === 'number' ? v : NaN; });
+            var bestIdx = -1;
+            if (m.higher || m.lower) {
+                var validNums = numericVals.filter(function(n) { return !isNaN(n); });
+                if (validNums.length > 0) {
+                    var best = m.higher ? Math.max.apply(null, validNums) : Math.min.apply(null, validNums);
+                    bestIdx = numericVals.indexOf(best);
+                }
+            }
+
+            bodyHtml += '<tr><td>' + m.label + '</td>';
+            values.forEach(function(v, i) {
+                var formatted = formatValue(v, m.fmt);
+                var cls = (i === bestIdx) ? ' class="best-value"' : '';
+                bodyHtml += '<td' + cls + '>' + formatted + '</td>';
+            });
+            bodyHtml += '</tr>';
+        });
+        body.innerHTML = bodyHtml;
+    }
+
+    function getNestedValue(caseData, path) {
+        var parts = path.split('.');
+        var obj = {};
+        if (parts[0] === 'input') {
+            obj = caseData.input_data || {};
+            parts = parts.slice(1);
+        } else if (parts[0] === 'result') {
+            obj = caseData.result_data || {};
+            parts = parts.slice(1);
+        }
+        for (var i = 0; i < parts.length; i++) {
+            if (obj == null) return null;
+            obj = obj[parts[i]];
+        }
+        return obj;
+    }
+
+    function formatValue(v, fmt) {
+        if (v == null || v === undefined) return '—';
+        switch (fmt) {
+            case 'text': return String(v);
+            case 'int': return Math.round(v).toString();
+            case 'num2': return Number(v).toFixed(2);
+            case 'num4': return Number(v).toFixed(4);
+            case 'pct': return (Number(v) * 100).toFixed(2) + '%';
+            default: return String(v);
+        }
+    }
+
+    function buildRetentionChart(cases) {
+        var canvas = document.getElementById('retentionChart');
+        if (typeof Chart === 'undefined') {
+            canvas.parentNode.innerHTML = '<p style="text-align:center;color:var(--color-text-muted);">Chart.js not loaded. Retention chart unavailable.</p>';
+            return;
+        }
+
+        var datasets = [];
+        var labels = null;
+
+        cases.forEach(function(c, idx) {
+            var retention = (c.result_data || {}).retention || {};
+            var byYear = retention.retention_by_year || {};
+            var years = Object.keys(byYear).map(Number).sort(function(a, b) { return a - b; });
+
+            if (!labels || years.length > labels.length) {
+                labels = years.map(function(y) { return 'Y' + y; });
+            }
+
+            var data = years.map(function(y) {
+                return (byYear[String(y)] || {}).retention_pct || 0;
+            });
+
+            datasets.push({
+                label: c.case_name,
+                data: data,
+                borderColor: COLORS[idx % COLORS.length],
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                pointRadius: 3,
+                tension: 0.1
+            });
+        });
+
+        new Chart(canvas, {
+            type: 'line',
+            data: { labels: labels || [], datasets: datasets },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: { display: false },
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: 'Retention (%)' },
+                        min: 50,
+                        max: 105
+                    },
+                    x: {
+                        title: { display: true, text: 'Year' }
+                    }
+                }
+            }
+        });
+    }
+
+    function buildDetailCards(cases) {
+        var container = document.getElementById('compareDetails');
+        var html = '';
+
+        cases.forEach(function(c, idx) {
+            var bat = (c.result_data || {}).battery || {};
+            var eff = (c.result_data || {}).efficiency || {};
+            var rte = (c.result_data || {}).rte || {};
+
+            html +=
+                '<div class="detail-card" style="border-left-color:' + COLORS[idx % COLORS.length] + '">' +
+                '<div class="detail-card__name">' + escHtml(c.case_name) + '</div>' +
+                detailItem('Product', (c.input_data || {}).product_type || '—') +
+                detailItem('PCS Config', (c.input_data || {}).pcs_type || '—') +
+                detailItem('PCS Count', bat.no_of_pcs || '—') +
+                detailItem('LINKs', bat.no_of_links || '—') +
+                detailItem('Racks', bat.no_of_racks || '—') +
+                detailItem('Energy DC', (bat.installation_energy_dc_mwh || 0).toFixed(2) + ' MWh') +
+                detailItem('Energy @POI', (bat.dischargeable_energy_poi_mwh || 0).toFixed(2) + ' MWh') +
+                detailItem('Duration', (bat.duration_bol_hr || 0).toFixed(2) + ' hr') +
+                detailItem('Efficiency', ((eff.total_bat_poi_eff || 0) * 100).toFixed(2) + '%') +
+                detailItem('RTE', rte.system_rte ? (rte.system_rte * 100).toFixed(2) + '%' : '—') +
+                '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    function detailItem(label, value) {
+        return '<div class="detail-card__item"><span class="detail-card__label">' + label + '</span><span class="detail-card__value">' + value + '</span></div>';
+    }
+
+    function exportExcel() {
+        fetch('/api/projects/' + PROJECT_ID + '/export/comparison', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_ids: CASE_IDS })
+        })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Export failed');
+            return r.blob();
+        })
+        .then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'BESS_Comparison_Report.xlsx';
+            a.click();
+            URL.revokeObjectURL(url);
+        })
+        .catch(function(err) { alert('Export error: ' + err.message); });
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+})();
+</script>
+{% endblock %}

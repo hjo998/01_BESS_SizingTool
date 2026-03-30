@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block title %}Cases — Project{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title" id="pageTitle">Project Cases</div>
+    <div class="page-subtitle">Manage sizing cases for this project. Create, clone, and compare different configurations.</div>
+</div>
+
+<!-- Action Bar -->
+<div class="action-bar">
+    <button class="btn btn--primary" id="btnNewCase">+ New Case</button>
+    <button class="btn btn--secondary" id="btnCompare" disabled>Compare Selected</button>
+    <a href="/projects" class="btn btn--ghost">&larr; Back to Projects</a>
+</div>
+
+<!-- Cases Grid -->
+<div class="cases-grid" id="casesGrid">
+    <div class="loading-spinner" id="loadingSpinner">Loading cases...</div>
+</div>
+
+<!-- New/Edit Case Modal -->
+<div class="modal-overlay" id="caseModal" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <span class="modal-title" id="modalTitle">New Case</span>
+            <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="caseName">Case Name</label>
+                <input type="text" id="caseName" placeholder="e.g. JF3 Base Configuration" />
+            </div>
+            <div class="form-group">
+                <label for="caseMemo">Memo (optional)</label>
+                <textarea id="caseMemo" rows="3" placeholder="Notes about this case..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn--primary" id="modalSave">Create</button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Cases-specific styles ──────────────────────────────────── */
+.action-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 24px;
+    padding: 0 4px;
+}
+
+.cases-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.case-card {
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    position: relative;
+}
+.case-card:hover { border-color: var(--color-primary); box-shadow: var(--shadow); }
+.case-card.selected { border-color: var(--color-primary); background: #FFF5F7; }
+.case-card.baseline { border-left: 4px solid var(--color-primary); }
+
+.case-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+.case-card__name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-dark);
+}
+.case-card__badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.case-card__badge--baseline { background: var(--color-primary); color: #fff; }
+.case-card__badge--calculated { background: var(--color-success); color: #fff; }
+.case-card__badge--pending { background: var(--color-warning); color: #fff; }
+
+.case-card__memo {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin-bottom: 12px;
+    min-height: 20px;
+}
+
+.case-card__metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.case-card__metric {
+    background: var(--color-bg);
+    padding: 8px;
+    border-radius: var(--radius);
+    text-align: center;
+}
+.case-card__metric-label {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.case-card__metric-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-dark);
+    font-family: var(--font-mono);
+}
+
+.case-card__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.case-card__check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    text-decoration: none;
+}
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--primary:hover { background: var(--color-primary-dk); }
+.btn--secondary { background: var(--color-dark-mid); color: #fff; }
+.btn--secondary:hover { background: var(--color-dark); }
+.btn--ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.btn--ghost:hover { background: var(--color-bg); color: var(--color-dark); text-decoration: none; }
+.btn--sm { padding: 4px 10px; font-size: 0.78rem; }
+.btn--danger { background: var(--color-danger); color: #fff; }
+.btn--danger:hover { opacity: 0.9; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+.modal-dialog {
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    width: 480px;
+    max-width: 90vw;
+    box-shadow: var(--shadow-lg);
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+.modal-title { font-size: 1.1rem; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--color-text-muted); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--color-border); }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.85rem; }
+.form-group input, .form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-family: var(--font-sans);
+}
+
+.loading-spinner { text-align: center; color: var(--color-text-muted); padding: 40px; }
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--color-text-muted);
+}
+.empty-state__icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-state__title { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; color: var(--color-dark); }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    var PROJECT_ID = {{ project_id }};
+    var selectedCases = new Set();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCases();
+        loadProjectTitle();
+
+        document.getElementById('btnNewCase').addEventListener('click', showNewCaseModal);
+        document.getElementById('btnCompare').addEventListener('click', goCompare);
+        document.getElementById('modalClose').addEventListener('click', hideModal);
+        document.getElementById('modalCancel').addEventListener('click', hideModal);
+        document.getElementById('modalSave').addEventListener('click', saveCase);
+    });
+
+    function loadProjectTitle() {
+        fetch('/api/projects/' + PROJECT_ID)
+            .then(function(r) { return r.json(); })
+            .then(function(p) {
+                document.getElementById('pageTitle').textContent = (p.title || 'Project') + ' — Cases';
+            });
+    }
+
+    function loadCases() {
+        fetch('/api/projects/' + PROJECT_ID + '/cases')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                renderCases(data.cases || []);
+            })
+            .catch(function() {
+                document.getElementById('casesGrid').innerHTML =
+                    '<div class="empty-state"><div class="empty-state__title">Error loading cases</div></div>';
+            });
+    }
+
+    function renderCases(cases) {
+        var grid = document.getElementById('casesGrid');
+        if (cases.length === 0) {
+            grid.innerHTML =
+                '<div class="empty-state">' +
+                '<div class="empty-state__icon">&#128196;</div>' +
+                '<div class="empty-state__title">No cases yet</div>' +
+                '<p>Create your first sizing case to get started.</p>' +
+                '</div>';
+            return;
+        }
+
+        var html = '';
+        cases.forEach(function(c) {
+            var hasResult = c.has_result;
+            var badgeClass = c.is_baseline ? 'baseline' : (hasResult ? 'calculated' : 'pending');
+            var badgeText = c.is_baseline ? 'Baseline' : (hasResult ? 'Calculated' : 'Pending');
+            var isSelected = selectedCases.has(c.id);
+
+            var metricsHtml = '';
+            if (c.result_summary) {
+                var s = c.result_summary;
+                var dim = !s.has_calc ? ' style="color:#aaa"' : '';
+                metricsHtml =
+                    '<div class="case-card__metrics"' + dim + '>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">Battery</div><div class="case-card__metric-value" style="font-size:0.75rem">' + escHtml(s.battery_product_type || '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">PCS</div><div class="case-card__metric-value" style="font-size:0.75rem">' + escHtml(s.pcs_product || '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">Power</div><div class="case-card__metric-value">' + (s.required_power_mw != null ? s.required_power_mw + ' MW' : '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">Energy</div><div class="case-card__metric-value">' + (s.installation_energy_dc_mwh != null ? s.installation_energy_dc_mwh + ' MWh' : '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">pf</div><div class="case-card__metric-value">' + (s.power_factor != null ? s.power_factor : '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">Oversizing</div><div class="case-card__metric-value">' + (s.oversizing_year != null ? 'Y' + s.oversizing_year : '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">PCS</div><div class="case-card__metric-value">' + (s.no_of_pcs != null ? s.no_of_pcs : '—') + '</div></div>' +
+                    '<div class="case-card__metric"><div class="case-card__metric-label">LINKs</div><div class="case-card__metric-value">' + (s.no_of_links != null ? s.no_of_links : '—') + '</div></div>' +
+                    '</div>';
+            }
+
+            html +=
+                '<div class="case-card' + (isSelected ? ' selected' : '') + (c.is_baseline ? ' baseline' : '') + '" data-id="' + c.id + '">' +
+                '<input type="checkbox" class="case-card__check" ' + (isSelected ? 'checked' : '') + ' onchange="window._toggleCase(' + c.id + ', this.checked)" />' +
+                '<div class="case-card__header">' +
+                '<span class="case-card__name">' + escHtml(c.case_name) + '</span>' +
+                '<span class="case-card__badge case-card__badge--' + badgeClass + '">' + badgeText + '</span>' +
+                '</div>' +
+                '<div class="case-card__memo">' + escHtml(c.case_memo || '') + '</div>' +
+                metricsHtml +
+                '<div class="case-card__actions">' +
+                '<a href="/?case_id=' + c.id + '&project_id=' + PROJECT_ID + '" class="btn btn--primary btn--sm">Edit & Calculate</a>' +
+                '<button class="btn btn--ghost btn--sm" onclick="window._cloneCase(' + c.id + ')">Clone</button>' +
+                '<button class="btn btn--danger btn--sm" onclick="window._deleteCase(' + c.id + ', \'' + escHtml(c.case_name) + '\')">Delete</button>' +
+                '</div>' +
+                '</div>';
+        });
+        grid.innerHTML = html;
+    }
+
+    window._toggleCase = function(id, checked) {
+        if (checked && selectedCases.size >= 5) {
+            alert('Maximum 5 cases can be compared at once.');
+            // Uncheck the checkbox
+            var cards = document.querySelectorAll('.case-card[data-id="' + id + '"] .case-card__check');
+            if (cards.length) cards[0].checked = false;
+            return;
+        }
+        if (checked) { selectedCases.add(id); } else { selectedCases.delete(id); }
+        document.getElementById('btnCompare').disabled = selectedCases.size < 2;
+        // Update card styling
+        document.querySelectorAll('.case-card').forEach(function(card) {
+            var cid = parseInt(card.getAttribute('data-id'));
+            card.classList.toggle('selected', selectedCases.has(cid));
+        });
+    };
+
+    window._cloneCase = function(id) {
+        fetch('/api/cases/' + id + '/clone', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
+            .then(function(r) { return r.json(); })
+            .then(function() { loadCases(); });
+    };
+
+    window._deleteCase = function(id, name) {
+        if (!confirm('Delete case "' + name + '"? This cannot be undone.')) return;
+        fetch('/api/cases/' + id, { method: 'DELETE' })
+            .then(function(r) { return r.json(); })
+            .then(function() { selectedCases.delete(id); loadCases(); });
+    };
+
+    function goCompare() {
+        if (selectedCases.size < 2) return;
+        var ids = Array.from(selectedCases).join(',');
+        window.location.href = '/project/' + PROJECT_ID + '/compare?cases=' + ids;
+    }
+
+    function showNewCaseModal() {
+        document.getElementById('modalTitle').textContent = 'New Case';
+        document.getElementById('caseName').value = '';
+        document.getElementById('caseMemo').value = '';
+        document.getElementById('modalSave').textContent = 'Create';
+        document.getElementById('caseModal').style.display = 'flex';
+    }
+
+    function hideModal() {
+        document.getElementById('caseModal').style.display = 'none';
+    }
+
+    function saveCase() {
+        var name = document.getElementById('caseName').value.trim();
+        var memo = document.getElementById('caseMemo').value.trim();
+
+        fetch('/api/projects/' + PROJECT_ID + '/cases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ case_name: name, case_memo: memo, input_data: {} })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function() { hideModal(); loadCases(); });
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+})();
+</script>
+{% endblock %}

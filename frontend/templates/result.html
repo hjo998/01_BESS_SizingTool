@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Results — SI Sizing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">Sizing Results</div>
+    <div class="page-subtitle">
+        Project: <strong>{{ result.project_title or 'Untitled' }}</strong>
+        &nbsp;|&nbsp; Calculated: {{ result.calculated_at or '—' }}
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card__label">No. of PCS</div>
+        <div class="stat-card__value">{{ result.pcs.no_of_pcs }}</div>
+        <div class="stat-card__unit">units</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__label">No. of LINKs</div>
+        <div class="stat-card__value">{{ result.battery.no_of_links }}</div>
+        <div class="stat-card__unit">units</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__label">No. of Racks</div>
+        <div class="stat-card__value">{{ result.battery.no_of_racks }}</div>
+        <div class="stat-card__unit">units</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__label">Installation Energy (DC)</div>
+        <div class="stat-card__value">{{ "%.1f"|format(result.battery.installation_energy_dc_mwh) }}</div>
+        <div class="stat-card__unit">MWh</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__label">C/P Rate</div>
+        <div class="stat-card__value">{{ "%.4f"|format(result.battery.cp_rate) }}</div>
+        <div class="stat-card__unit">C-rate</div>
+    </div>
+    <div class="stat-card stat-card--success">
+        <div class="stat-card__label">Duration (BOL)</div>
+        <div class="stat-card__value">{{ "%.2f"|format(result.battery.duration_bol_hr) }}</div>
+        <div class="stat-card__unit">hours</div>
+    </div>
+</div>
+
+<!-- Retention Chart -->
+<div class="card">
+    <div class="card-title">Capacity Retention Curve</div>
+    <div class="chart-wrap">
+        <canvas id="retentionChart" height="340"></canvas>
+    </div>
+</div>
+
+<!-- Retention Table + Side Cards -->
+<div class="two-col">
+    <div class="card">
+        <div class="retention-table__card-title">Year-by-Year Retention</div>
+        <div class="retention-table__wrap">
+            <table class="retention-table">
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th>Retention %</th>
+                        <th>Total Energy (MWh)</th>
+                        <th>Dischargeable @POI (MWh)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for year, data in result.retention.retention_by_year.items() %}
+                    <tr>
+                        <td class="col-year">{{ year }}</td>
+                        <td class="col-ret"
+                            data-level="{% if data.retention_pct >= 85 %}high{% elif data.retention_pct >= 70 %}mid{% else %}low{% endif %}">
+                            {{ "%.2f"|format(data.retention_pct) }}%
+                        </td>
+                        <td class="col-num">{{ "%.1f"|format(data.total_energy_mwh) }}</td>
+                        <td class="col-num">{{ "%.1f"|format(data.dischargeable_energy_poi_mwh) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div>
+        <!-- Reactive Power -->
+        <div class="card mb-16">
+            <div class="card-title">Reactive Power</div>
+            <table class="summary-table">
+                <tbody>
+                    <tr>
+                        <td>Total Apparent Power @POI</td>
+                        <td>{{ "%.1f"|format(result.reactive_power.total_apparent_power_poi_kva) }} kVA</td>
+                    </tr>
+                    <tr>
+                        <td>PF at MV</td>
+                        <td>{{ "%.4f"|format(result.reactive_power.pf_at_mv) }}</td>
+                    </tr>
+                    <tr>
+                        <td>PCS Sufficient</td>
+                        <td>
+                            {% if result.reactive_power.is_pcs_sufficient %}
+                                <span class="badge badge--ok">YES</span>
+                            {% else %}
+                                <span class="badge badge--danger">NO</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Efficiency Summary -->
+        <div class="card mb-16">
+            <div class="card-title">Efficiency Summary</div>
+            <table class="summary-table">
+                <tbody>
+                    <tr>
+                        <td>Total Bat-POI Eff.</td>
+                        <td>{{ "%.4f"|format(result.efficiency.total_bat_poi_eff) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Total Battery Loss Factor</td>
+                        <td>{{ "%.4f"|format(result.efficiency.total_battery_loss_factor) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Total DC-to-Aux Eff.</td>
+                        <td>{{ "%.4f"|format(result.efficiency.total_dc_to_aux_eff) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- RTE -->
+        <div class="card">
+            <div class="card-title">Round-Trip Efficiency</div>
+            <div style="text-align:center;padding:20px 0;">
+                <div style="font-size:52px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
+                    {{ "%.1f"|format(result.rte.system_rte * 100) }}%
+                </div>
+                <div style="font-size:13px;color:var(--color-text-muted);margin-top:4px;">System Round-Trip Efficiency</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="btn-row no-print">
+    <a href="/" class="btn btn--outline">&#8592; Back to Input</a>
+    <button class="btn btn--success" onclick="exportResultExcel()">&#8659; Export to Excel</button>
+    <a href="/summary" class="btn btn--dark" target="_blank">&#128196; Summary View</a>
+    <button class="btn btn--success" onclick="showUploadModal()" style="background:#2e7d32;">&#128228; Upload to Shared DB</button>
+</div>
+
+<!-- Upload to Shared DB Modal -->
+<div id="uploadModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+    <div style="background:#fff;border-radius:12px;padding:32px;max-width:480px;width:90%;">
+        <h3 style="margin:0 0 16px 0;">&#128228; Upload to Shared DB</h3>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;font-size:13px;">Project Name *</label>
+            <input type="text" id="uploadProjectName" value="{{ result.project_title or '' }}"
+                   style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;"
+                   placeholder="e.g. Saudi Neom 100MW/400MWh">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;font-size:13px;">Description (optional)</label>
+            <textarea id="uploadDescription" rows="2"
+                      style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;resize:vertical;"
+                      placeholder="Brief note about this design..."></textarea>
+        </div>
+        <div id="uploadError" style="background:#fef2f2;color:#dc2626;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;display:none;"></div>
+        <div id="uploadSuccess" style="background:#f0fdf4;color:#16a34a;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;display:none;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button onclick="hideUploadModal()" style="padding:8px 18px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;">Cancel</button>
+            <button id="uploadBtn" onclick="doUpload()" style="padding:8px 18px;border:none;border-radius:6px;background:#2e7d32;color:#fff;cursor:pointer;font-weight:600;">Upload</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var curveData = {{ result.retention.curve | tojson }};
+    var requiredEnergy = {{ result.battery.installation_energy_dc_mwh }};
+    if (curveData && curveData.length) {
+        BESSCharts.drawRetentionCurve('retentionChart', curveData, requiredEnergy, []);
+    }
+})();
+
+function exportResultExcel() {
+    window.location.href = '/api/export?project_id={{ result.project_id or "" }}';
+}
+
+function showUploadModal() {
+    document.getElementById('uploadModal').style.display = 'flex';
+    document.getElementById('uploadError').style.display = 'none';
+    document.getElementById('uploadSuccess').style.display = 'none';
+}
+function hideUploadModal() {
+    document.getElementById('uploadModal').style.display = 'none';
+}
+
+function doUpload() {
+    var projectName = document.getElementById('uploadProjectName').value.trim();
+    if (!projectName) {
+        var errDiv = document.getElementById('uploadError');
+        errDiv.textContent = 'Project name is required';
+        errDiv.style.display = 'block';
+        return;
+    }
+    var btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading...';
+
+    var payload = {
+        project_name: projectName,
+        description: document.getElementById('uploadDescription').value.trim(),
+        input_data: {{ result.input_data | tojson }},
+        result_data: {{ result.result_data | tojson }}
+    };
+
+    fetch('/api/shared/designs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+    .then(function(res) {
+        if (res.ok) {
+            var s = document.getElementById('uploadSuccess');
+            s.innerHTML = 'Uploaded! <a href="/shared/' + res.data.id + '" style="color:#16a34a;font-weight:600;">View in Shared DB &rarr;</a>';
+            s.style.display = 'block';
+            document.getElementById('uploadError').style.display = 'none';
+        } else {
+            var e = document.getElementById('uploadError');
+            e.textContent = res.data.error || 'Upload failed';
+            e.style.display = 'block';
+        }
+    })
+    .catch(function() {
+        var e = document.getElementById('uploadError');
+        e.textContent = 'Network error. Are you logged in?';
+        e.style.display = 'block';
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Upload';
+    });
+}
+</script>
+{% endblock %}

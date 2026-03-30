@@ -1,0 +1,22 @@
+{
+  "JF2 0.25 DC LINK": {
+    "peak_kw": 15.36,
+    "standby_kw": 8.37
+  },
+  "JF2 0.25 AC LINK": {
+    "peak_kw": 25.89,
+    "standby_kw": 13.44
+  },
+  "JF2 0.5 DC LINK": {
+    "peak_kw": 32.4,
+    "standby_kw": 32.4
+  },
+  "JF2 0.5 AC LINK": {
+    "peak_kw": 28.27,
+    "standby_kw": 16.54
+  },
+  "JF3 0.25 DC LINK": {
+    "peak_kw": 10.63,
+    "standby_kw": 6.3
+  }
+}

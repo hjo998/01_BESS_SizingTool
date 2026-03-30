@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  bess-sizing:
+    build: .
+    container_name: bess-sizing
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - bess-data:/app/backend/data
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-me-in-production}
+      - FLASK_ENV=${FLASK_ENV:-production}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/auth/me')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  bess-data:
+    driver: local

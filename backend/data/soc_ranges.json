@@ -1,0 +1,59 @@
+{
+  "description": "SOC operating ranges by application type and CP-rate",
+  "applications": {
+    "Peak Shifting": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Standard peak shifting / load shifting"
+    },
+    "PS": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Alias for Peak Shifting"
+    },
+    "Frequency Regulation": {
+      "soc_high": 0.90,
+      "soc_low": 0.10,
+      "soc_rest": 0.50,
+      "description": "Grid frequency regulation"
+    },
+    "FR": {
+      "soc_high": 0.90,
+      "soc_low": 0.10,
+      "soc_rest": 0.50,
+      "description": "Alias for Frequency Regulation"
+    },
+    "Solar Shifting": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Solar + storage shifting"
+    },
+    "SS": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Alias for Solar Shifting"
+    },
+    "Arbitrage": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Energy arbitrage"
+    },
+    "Default": {
+      "soc_high": 0.99,
+      "soc_low": 0.01,
+      "soc_rest": 0.30,
+      "description": "Default when application not specified"
+    }
+  },
+  "product_limits": {
+    "JF3 0.25 DC LINK": {"soc_max": 1.00, "soc_min": 0.00},
+    "JF2 0.25 DC LINK": {"soc_max": 1.00, "soc_min": 0.00},
+    "JF2 0.25 AC LINK": {"soc_max": 1.00, "soc_min": 0.00},
+    "Default": {"soc_max": 1.00, "soc_min": 0.00}
+  }
+}

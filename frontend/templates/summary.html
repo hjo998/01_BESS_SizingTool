@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Summary — SI Sizing{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .site-header, .site-footer, .no-print { display: none !important; }
+        .site-main { padding: 20px; }
+        body { background: #FFF; font-size: 12px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Print / Export Controls -->
+<div class="btn-row no-print mb-24" style="margin-top:0;padding-top:0;border-top:none;">
+    <button class="btn btn--primary" onclick="window.print()">&#128438; Print / Save PDF</button>
+    <a href="/" class="btn btn--outline">&#8592; Back to Input</a>
+    <a href="/result" class="btn btn--outline">&#8635; Full Results</a>
+</div>
+
+<!-- Summary Document -->
+<div class="card" style="max-width:1100px;margin:0 auto;">
+
+    <!-- Document Header -->
+    <div class="summary-header">
+        <div class="summary-brand">
+            <div class="summary-brand-name">LG Energy Solution</div>
+            <div class="summary-brand-sub">BESS Engineering Proposal — Confidential</div>
+        </div>
+        <div class="summary-doc-title">
+            <h1>SI Sizing Summary</h1>
+            <p>Generated: {{ result.calculated_at or '—' }}</p>
+        </div>
+    </div>
+
+    <!-- ── Section 1: Project Information ── -->
+    <div class="form-section-title" style="margin-bottom:12px;">1. Project Information</div>
+    <table class="summary-table" style="margin-bottom:28px;">
+        <tbody>
+            <tr><td>Project Title</td><td>{{ result.project_title or '—' }}</td></tr>
+            <tr><td>Customer</td><td>{{ result.customer or '—' }}</td></tr>
+            <tr><td>Application</td><td>{{ result.application or '—' }}</td></tr>
+            <tr><td>Project Life</td><td>{{ result.project_life or '20' }} yr</td></tr>
+            <tr><td>POI Level</td><td>{{ result.poi_level or '—' }}</td></tr>
+            <tr><td>Required Power</td><td>{{ result.required_power_mw or '—' }} MW</td></tr>
+            <tr><td>Required Energy</td><td>{{ result.required_energy_mwh or '—' }} MWh</td></tr>
+            <tr><td>Power Factor</td><td>{{ result.power_factor or '—' }}</td></tr>
+            <tr><td>Ambient Temperature</td><td>{{ result.temperature_c or '—' }} °C</td></tr>
+            <tr><td>Altitude</td><td>{{ result.altitude or '—' }}</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ── Section 2: System Sizing Results ── -->
+    <div class="form-section-title" style="margin-bottom:12px;">2. System Sizing Results</div>
+    <table class="summary-table" style="margin-bottom:28px;">
+        <tbody>
+            <tr><td>No. of PCS Units</td><td>{{ result.pcs.no_of_pcs }} units</td></tr>
+            <tr><td>PCS Unit Power</td><td>{{ "%.4f"|format(result.pcs.pcs_unit_power_mw) }} MW</td></tr>
+            <tr><td>LINKs per PCS</td><td>{{ result.pcs.links_per_pcs }}</td></tr>
+            <tr><td>No. of LINKs</td><td>{{ result.battery.no_of_links }} units</td></tr>
+            <tr><td>No. of Racks</td><td>{{ result.battery.no_of_racks }} units</td></tr>
+            <tr><td>Installation Energy (DC)</td><td>{{ "%.3f"|format(result.battery.installation_energy_dc_mwh) }} MWh</td></tr>
+            <tr><td>Dischargeable Energy @POI</td><td>{{ "%.3f"|format(result.battery.dischargeable_energy_poi_mwh) }} MWh</td></tr>
+            <tr><td>Duration (BOL)</td><td>{{ "%.3f"|format(result.battery.duration_bol_hr) }} hr</td></tr>
+            <tr><td>C/P Rate</td><td>{{ "%.4f"|format(result.battery.cp_rate) }}</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ── Section 3: Efficiency Summary ── -->
+    <div class="form-section-title" style="margin-bottom:12px;">3. Efficiency Summary</div>
+    <table class="summary-table" style="margin-bottom:28px;">
+        <tbody>
+            <tr><td>Total Bat-POI Efficiency</td><td>{{ "%.4f"|format(result.efficiency.total_bat_poi_eff) }} ({{ "%.2f"|format(result.efficiency.total_bat_poi_eff * 100) }}%)</td></tr>
+            <tr><td>Total Battery Loss Factor</td><td>{{ "%.4f"|format(result.efficiency.total_battery_loss_factor) }}</td></tr>
+            <tr><td>Total DC-to-Aux Efficiency</td><td>{{ "%.4f"|format(result.efficiency.total_dc_to_aux_eff) }}</td></tr>
+            <tr><td>System Round-Trip Efficiency</td><td>{{ "%.4f"|format(result.rte.system_rte) }} ({{ "%.2f"|format(result.rte.system_rte * 100) }}%)</td></tr>
+        </tbody>
+    </table>
+
+    <!-- ── Section 4: Reactive Power ── -->
+    <div class="form-section-title" style="margin-bottom:12px;">4. Reactive Power</div>
+    <table class="summary-table" style="margin-bottom:28px;">
+        <tbody>
+            <tr><td>Total Apparent Power @POI</td><td>{{ "%.1f"|format(result.reactive_power.total_apparent_power_poi_kva) }} kVA</td></tr>
+            <tr><td>PF at MV</td><td>{{ "%.4f"|format(result.reactive_power.pf_at_mv) }}</td></tr>
+            <tr>
+                <td>PCS Sufficient</td>
+                <td>
+                    {% if result.reactive_power.is_pcs_sufficient %}
+                        <span class="badge badge--ok">YES — PCS capacity is adequate</span>
+                    {% else %}
+                        <span class="badge badge--danger">NO — PCS upgrade may be required</span>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ── Section 5: Capacity Retention ── -->
+    <div class="form-section-title" style="margin-bottom:12px;">5. Capacity Retention (Year 0 – EOL)</div>
+    <div class="chart-wrap" style="margin-bottom:20px;">
+        <canvas id="retentionChart" height="260"></canvas>
+    </div>
+
+    <div class="retention-table__wrap" style="margin-bottom:28px;">
+        <table class="retention-table">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Retention %</th>
+                    <th>Total Energy (MWh)</th>
+                    <th>Dischargeable @POI (MWh)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for year, data in result.retention.retention_by_year.items() %}
+                <tr>
+                    <td class="col-year">{{ year }}</td>
+                    <td class="col-ret"
+                        data-level="{% if data.retention_pct >= 85 %}high{% elif data.retention_pct >= 70 %}mid{% else %}low{% endif %}">
+                        {{ "%.2f"|format(data.retention_pct) }}%
+                    </td>
+                    <td class="col-num">{{ "%.1f"|format(data.total_energy_mwh) }}</td>
+                    <td class="col-num">{{ "%.1f"|format(data.dischargeable_energy_poi_mwh) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Document Footer -->
+    <div style="text-align:center;font-size:11px;color:var(--color-text-muted);padding-top:16px;border-top:1px solid var(--color-border);">
+        LG Energy Solution — Confidential &amp; Proprietary &nbsp;|&nbsp; SI Sizing Tool Ver.2.0 &nbsp;|&nbsp; Internal Use Only
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var curveData = {{ result.retention.curve | tojson }};
+    var requiredEnergy = {{ result.battery.installation_energy_dc_mwh }};
+    if (curveData && curveData.length) {
+        BESSCharts.drawRetentionCurve('retentionChart', curveData, requiredEnergy, []);
+    }
+})();
+</script>
+{% endblock %}

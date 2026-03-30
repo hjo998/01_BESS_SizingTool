@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">Projects</div>
+    <div class="page-subtitle">Manage your BESS sizing projects. Click a project to view its cases.</div>
+</div>
+
+<div class="action-bar">
+    <button class="btn btn--primary" id="btnNewProject">+ New Project</button>
+</div>
+
+<div class="projects-grid" id="projectsGrid">
+    <div class="loading-spinner">Loading projects...</div>
+</div>
+
+<!-- New Project Modal -->
+<div class="modal-overlay" id="projectModal" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <span class="modal-title">New Project</span>
+            <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="projectTitle">Project Title</label>
+                <input type="text" id="projectTitle" placeholder="e.g. Saudi 200MW BESS" />
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--ghost" id="modalCancel">Cancel</button>
+            <button class="btn btn--primary" id="modalSave">Create</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.action-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; padding: 0 4px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: var(--radius); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--transition); text-decoration: none; }
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--primary:hover { background: var(--color-primary-dk); }
+.btn--ghost { background: transparent; color: var(--color-text-muted); border: 1px solid var(--color-border); }
+.btn--ghost:hover { background: var(--color-bg); color: var(--color-dark); }
+.btn--danger { background: var(--color-danger); color: #fff; }
+.btn--danger:hover { opacity: 0.9; }
+.btn--sm { padding: 4px 10px; font-size: 0.78rem; }
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+    gap: 16px;
+}
+.project-card {
+    background: var(--color-bg-card);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: border-color var(--transition), box-shadow var(--transition);
+    cursor: pointer;
+    overflow: hidden;
+}
+.project-card:hover { border-color: var(--color-primary); box-shadow: var(--shadow); }
+.project-card__title { font-size: 1.1rem; font-weight: 700; color: var(--color-dark); margin-bottom: 8px; }
+.project-card__meta { font-size: 0.8rem; color: var(--color-text-muted); margin-bottom: 12px; }
+.project-card__table-wrap {
+    overflow-x: auto;
+    margin-bottom: 10px;
+}
+.project-card__cases-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+.project-card__cases-table th {
+    font-size: 0.65rem;
+    color: var(--color-text-muted, #888);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 2px 6px;
+    text-align: right;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+    white-space: nowrap;
+}
+.project-card__cases-table th:first-child { text-align: left; }
+.project-card__cases-table td {
+    padding: 2px 6px;
+    text-align: right;
+    font-family: var(--font-mono, monospace);
+    font-weight: 600;
+    color: var(--color-dark, #1a1a2e);
+    white-space: nowrap;
+}
+.project-card__cases-table td:first-child {
+    text-align: left;
+    font-family: inherit;
+    font-weight: 500;
+    color: var(--color-text-muted, #666);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.project-card__cases-table tr.no-result td { color: var(--color-text-muted, #aaa); font-weight: 400; }
+.project-card__summary {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--color-bg, #f8f9fa);
+    border-radius: var(--radius, 6px);
+    border: 1px solid var(--color-border, #eee);
+}
+.project-card__kv { display: flex; flex-direction: column; min-width: 60px; }
+.project-card__kv-label { font-size: 0.68rem; color: var(--color-text-muted, #888); text-transform: uppercase; letter-spacing: 0.4px; }
+.project-card__kv-value { font-size: 0.9rem; font-weight: 700; color: var(--color-dark, #1a1a2e); font-family: var(--font-mono, monospace); }
+.project-card__actions { display: flex; gap: 8px; }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.modal-dialog { background: var(--color-bg-card); border-radius: var(--radius-lg); width: 440px; max-width: 90vw; box-shadow: var(--shadow-lg); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
+.modal-title { font-size: 1.1rem; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--color-text-muted); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--color-border); }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.85rem; }
+.form-group input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.9rem; font-family: var(--font-sans); }
+.loading-spinner { text-align: center; color: var(--color-text-muted); padding: 40px; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--color-text-muted); }
+.empty-state__icon { font-size: 3rem; margin-bottom: 12px; }
+.empty-state__title { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; color: var(--color-dark); }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    'use strict';
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProjects();
+        document.getElementById('btnNewProject').addEventListener('click', function() {
+            document.getElementById('projectTitle').value = '';
+            document.getElementById('projectModal').style.display = 'flex';
+        });
+        document.getElementById('modalClose').addEventListener('click', hideModal);
+        document.getElementById('modalCancel').addEventListener('click', hideModal);
+        document.getElementById('modalSave').addEventListener('click', createProject);
+    });
+
+    function hideModal() {
+        document.getElementById('projectModal').style.display = 'none';
+    }
+
+    function loadProjects() {
+        fetch('/api/projects')
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderProjects(data.projects || []); })
+            .catch(function() {
+                document.getElementById('projectsGrid').innerHTML =
+                    '<div class="empty-state"><div class="empty-state__title">Error loading projects</div></div>';
+            });
+    }
+
+    function renderProjects(projects) {
+        var grid = document.getElementById('projectsGrid');
+        if (projects.length === 0) {
+            grid.innerHTML =
+                '<div class="empty-state">' +
+                '<div class="empty-state__icon">&#128218;</div>' +
+                '<div class="empty-state__title">No projects yet</div>' +
+                '<p>Create your first project to get started.</p>' +
+                '</div>';
+            return;
+        }
+
+        var html = '';
+        projects.forEach(function(p) {
+            // Cases summary table
+            var summaryHtml = '';
+            var cs = p.cases_summary || [];
+            if (cs.length > 0) {
+                summaryHtml =
+                    '<div class="project-card__table-wrap">' +
+                    '<table class="project-card__cases-table">' +
+                    '<thead><tr>' +
+                    '<th>Case</th><th>Battery</th><th>PCS</th><th>Power</th><th>Energy</th><th>pf</th><th>Oversizing</th><th>PCS#</th><th>LINKs</th>' +
+                    '</tr></thead><tbody>';
+                cs.forEach(function(c) {
+                    var nr = c.has_result ? '' : ' class="no-result"';
+                    var bat = c.battery_product_type || '\u2014';
+                    var pcsProd = c.pcs_product || '\u2014';
+                    var pw = c.required_power_mw != null ? c.required_power_mw + '' : '\u2014';
+                    var en = c.installation_energy_dc_mwh != null ? c.installation_energy_dc_mwh + '' : '\u2014';
+                    var pf = c.power_factor != null ? c.power_factor + '' : '\u2014';
+                    var oy = c.oversizing_year != null ? 'Y' + c.oversizing_year : '\u2014';
+                    var pcs = c.no_of_pcs != null ? c.no_of_pcs + '' : '\u2014';
+                    var lnk = c.no_of_links != null ? c.no_of_links + '' : '\u2014';
+                    summaryHtml +=
+                        '<tr' + nr + '>' +
+                        '<td>' + escHtml(c.case_name) + '</td>' +
+                        '<td>' + escHtml(bat) + '</td>' +
+                        '<td>' + escHtml(pcsProd) + '</td>' +
+                        '<td>' + pw + '</td>' +
+                        '<td>' + en + '</td>' +
+                        '<td>' + pf + '</td>' +
+                        '<td>' + oy + '</td>' +
+                        '<td>' + pcs + '</td>' +
+                        '<td>' + lnk + '</td>' +
+                        '</tr>';
+                });
+                summaryHtml += '</tbody></table></div>';
+            }
+
+            var caseCountLabel = p.case_count != null
+                ? p.case_count + (p.case_count === 1 ? ' case' : ' cases')
+                : '';
+
+            html +=
+                '<div class="project-card" onclick="window.location.href=\'/project/' + p.id + '/cases\'">' +
+                '<div class="project-card__title">' + escHtml(p.title) + '</div>' +
+                '<div class="project-card__meta">Created: ' + (p.created_at || '\u2014').slice(0, 10) +
+                ' &middot; Updated: ' + (p.updated_at || '\u2014').slice(0, 10) +
+                (caseCountLabel ? ' &middot; ' + caseCountLabel : '') +
+                '</div>' +
+                summaryHtml +
+                '<div class="project-card__actions">' +
+                '<a href="/project/' + p.id + '/cases" class="btn btn--primary btn--sm" onclick="event.stopPropagation()">View Cases</a>' +
+                '<button class="btn btn--danger btn--sm" onclick="event.stopPropagation(); deleteProject(' + p.id + ', \'' + escHtml(p.title) + '\')">Delete</button>' +
+                '</div>' +
+                '</div>';
+        });
+        grid.innerHTML = html;
+    }
+
+    window.deleteProject = function(id, title) {
+        if (!confirm('Delete project "' + title + '"? This cannot be undone.')) return;
+        fetch('/api/projects/' + id, { method: 'DELETE' })
+            .then(function(r) { return r.json(); })
+            .then(function() { loadProjects(); });
+    };
+
+    function createProject() {
+        var title = document.getElementById('projectTitle').value.trim();
+        if (!title) return;
+
+        fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: title, input_data: {}, result_data: {} })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function() { hideModal(); loadProjects(); });
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+[
+  {
+    "config_name": "PE + JF2 5.1 x 3sets",
+    "manufacturer": "Power Electronics",
+    "model": "FP4200",
+    "strings_per_pcs": 1,
+    "links_per_pcs": 3
+  },
+  {
+    "config_name": "EPC Power M 5stc + JF2 5.1 x 2sets",
+    "manufacturer": "EPC Power",
+    "model": "M5",
+    "strings_per_pcs": 5,
+    "links_per_pcs": 2,
+    "battery": "JF2"
+  },
+  {
+    "config_name": "EPC Power M 6stc + JF2 5.1 x 2sets",
+    "manufacturer": "EPC Power",
+    "model": "M6",
+    "strings_per_pcs": 6,
+    "links_per_pcs": 2,
+    "battery": "JF2"
+  },
+  {
+    "config_name": "SMA SCS4600-UP-S+ JF2 5.1 x 3sets",
+    "manufacturer": "SMA",
+    "model": "SCS4600-UP-S",
+    "strings_per_pcs": 1,
+    "links_per_pcs": 3
+  },
+  {
+    "config_name": "SMA SCS3950-UP-S+ JF2 5.1 x 2sets",
+    "manufacturer": "SMA",
+    "model": "SCS3950-UP-S",
+    "strings_per_pcs": 1,
+    "links_per_pcs": 2
+  },
+  {
+    "config_name": "SMA SCS3950-UP-S+ JF2 5.1 x 3sets",
+    "manufacturer": "SMA",
+    "model": "SCS3950-UP-S",
+    "strings_per_pcs": 1,
+    "links_per_pcs": 3
+  },
+  {
+    "config_name": "LSE Inverter (Built-in) x 2 per MVT",
+    "manufacturer": "LSE",
+    "model": "Inverter (Built-in)",
+    "strings_per_pcs": 1,
+    "links_per_pcs": 2,
+    "ac_link": true
+  },
+  {
+    "config_name": "EPC Power M 6stc + JF3 5.5 x 2sets",
+    "manufacturer": "EPC Power",
+    "model": "M6",
+    "strings_per_pcs": 6,
+    "links_per_pcs": 2,
+    "battery": "JF3"
+  }
+]

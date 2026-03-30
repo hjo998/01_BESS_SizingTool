@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}{{ design.project_name }} Rev.{{ design.revision }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .detail-container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+    .detail-header { margin-bottom: 24px; }
+    .detail-header h2 { margin: 0 0 4px 0; color: #1a1a2e; font-size: 22px; }
+    .detail-meta { color: #666; font-size: 13px; }
+    .detail-meta strong { color: #333; }
+
+    .status-banner { padding: 12px 20px; border-radius: 8px; margin-bottom: 24px; font-size: 14px; font-weight: 500; }
+    .status-banner.draft { background: #e3f2fd; color: #1565c0; }
+    .status-banner.submitted { background: #e8f5e9; color: #2e7d32; }
+    .status-banner.unlocked { background: #fff3e0; color: #e65100; }
+
+    .action-bar { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+    .btn-action { padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #ddd; background: #fff; transition: all 0.2s; }
+    .btn-action:hover { background: #f5f5f5; }
+    .btn-action.primary { background: #a50034; color: #fff; border-color: #a50034; }
+    .btn-action.primary:hover { background: #8a002b; }
+    .btn-action.success { background: #2e7d32; color: #fff; border-color: #2e7d32; }
+    .btn-action.success:hover { background: #1b5e20; }
+    .btn-action.warning { background: #e65100; color: #fff; border-color: #e65100; }
+    .btn-action.warning:hover { background: #bf360c; }
+    .btn-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .detail-tabs { display: flex; border-bottom: 2px solid #eee; margin-bottom: 20px; }
+    .detail-tab { padding: 10px 20px; cursor: pointer; font-size: 14px; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .detail-tab.active { color: #a50034; border-bottom-color: #a50034; font-weight: 600; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .data-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); padding: 20px; margin-bottom: 20px; }
+    .data-card h3 { margin: 0 0 16px 0; font-size: 16px; color: #1a1a2e; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 8px 12px; background: #f8f9fa; font-size: 12px; color: #666; text-transform: uppercase; }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+
+    .audit-list { list-style: none; padding: 0; }
+    .audit-item { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+    .audit-item .audit-action { font-weight: 600; color: #333; }
+    .audit-item .audit-time { color: #999; font-size: 12px; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal-box { background: #fff; border-radius: 12px; padding: 32px; max-width: 480px; width: 90%; }
+    .modal-box h3 { margin: 0 0 16px 0; }
+    .modal-box textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; resize: vertical; }
+    .modal-box .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+    .back-link { display: inline-block; margin-bottom: 16px; color: #a50034; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+
+    .revision-timeline { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+    .rev-chip { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #f0f0f0; color: #333; text-decoration: none; }
+    .rev-chip.current { background: #a50034; color: #fff; }
+    .rev-chip.submitted { background: #e8f5e9; color: #2e7d32; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="/shared/" class="back-link">&larr; Back to Shared Designs</a>
+
+    <div class="detail-header">
+        <h2>{{ design.project_name }} — Rev.{{ design.revision }}</h2>
+        <div class="detail-meta">
+            Created: <strong>{{ design.created_at[:10] }}</strong> by <strong>{{ design.creator_name or 'Unknown' }}</strong>
+            {% if design.updated_at %}
+            &nbsp;|&nbsp; Updated: <strong>{{ design.updated_at[:10] }}</strong>
+            {% endif %}
+            {% if design.submitter_name %}
+            &nbsp;|&nbsp; Submitted by: <strong>{{ design.submitter_name }}</strong>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="status-banner {{ design.status }}" id="statusBanner">
+        {% if design.status == 'draft' %}
+            📝 DRAFT — This design can be edited and submitted.
+        {% elif design.status == 'submitted' %}
+            ✅ SUBMITTED — This design is locked. Unlock to edit.
+        {% elif design.status == 'unlocked' %}
+            🔓 UNLOCKED — This design was unlocked for editing.
+        {% endif %}
+    </div>
+
+    <div class="action-bar" id="actionBar">
+        <button class="btn-action primary" id="btnEdit" onclick="editDesign()"
+            {% if design.status == 'submitted' %}disabled{% endif %}>
+            📝 Edit
+        </button>
+        <button class="btn-action success" id="btnSubmit" onclick="submitDesign()"
+            {% if design.status == 'submitted' %}disabled{% endif %}>
+            ✅ Submit
+        </button>
+        <button class="btn-action warning" id="btnUnlock" onclick="showUnlockModal()"
+            {% if design.status != 'submitted' %}disabled{% endif %}>
+            🔓 Unlock
+        </button>
+        <button class="btn-action" id="btnNewRev" onclick="newRevision()">
+            🆕 New Revision
+        </button>
+        <button class="btn-action" id="btnDelete" onclick="deleteDesign()"
+            {% if design.status != 'draft' %}disabled{% endif %}
+            style="margin-left:auto; color:#dc2626; border-color:#fca5a5;">
+            🗑 Delete
+        </button>
+    </div>
+
+    <div class="detail-tabs">
+        <div class="detail-tab active" onclick="switchDetailTab('summary')">Summary</div>
+        <div class="detail-tab" onclick="switchDetailTab('input')">Input Details</div>
+        <div class="detail-tab" onclick="switchDetailTab('results')">Results</div>
+        <div class="detail-tab" onclick="switchDetailTab('audit')">Audit Log</div>
+    </div>
+
+    <div id="tab-summary" class="tab-panel active">
+        <div class="data-card">
+            <h3>Design Summary</h3>
+            <div id="summaryContent">Loading...</div>
+        </div>
+        <div class="data-card">
+            <h3>Revision Timeline</h3>
+            <div class="revision-timeline" id="revisionTimeline">Loading...</div>
+        </div>
+    </div>
+
+    <div id="tab-input" class="tab-panel">
+        <div class="data-card">
+            <h3>Input Parameters</h3>
+            <table class="data-table" id="inputTable"><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div id="tab-results" class="tab-panel">
+        <div class="data-card">
+            <h3>Calculation Results</h3>
+            <table class="data-table" id="resultTable"><tbody></tbody></table>
+        </div>
+    </div>
+
+    <div id="tab-audit" class="tab-panel">
+        <div class="data-card">
+            <h3>Audit Log</h3>
+            <ul class="audit-list" id="auditList"></ul>
+        </div>
+    </div>
+</div>
+
+<!-- Unlock Modal -->
+<div class="modal-overlay" id="unlockModal">
+    <div class="modal-box">
+        <h3>⚠️ Unlock Submitted Design</h3>
+        <p style="font-size:14px;color:#666;">This design was submitted to the customer. To edit, provide a reason for unlocking.</p>
+        <textarea id="unlockReason" placeholder="Reason for unlocking (required)..."></textarea>
+        <p style="font-size:12px;color:#999;">⚠️ This action will be recorded in the audit log.</p>
+        <div class="modal-actions">
+            <button class="btn-action" onclick="hideUnlockModal()">Cancel</button>
+            <button class="btn-action warning" onclick="confirmUnlock()">Confirm Unlock</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var designId = {{ design.id }};
+var designData = {{ design | tojson }};
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderSummary();
+    renderDataTable('inputTable', designData.input_data);
+    renderDataTable('resultTable', designData.result_data);
+    loadAuditLog();
+    loadRevisions();
+});
+
+function switchDetailTab(name) {
+    document.querySelectorAll('.detail-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    event.target.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+function renderSummary() {
+    var r = designData.result_data || {};
+    var html = '<table class="data-table"><tbody>';
+    if (r.pcs) {
+        html += '<tr><th>PCS Units</th><td>' + (r.pcs.no_of_pcs || '-') + '</td></tr>';
+        html += '<tr><th>PCS Model</th><td>' + (r.pcs.selected_model || '-') + '</td></tr>';
+    }
+    if (r.battery) {
+        html += '<tr><th>No. of Links</th><td>' + (r.battery.no_of_links || '-') + '</td></tr>';
+        html += '<tr><th>No. of Racks</th><td>' + (r.battery.no_of_racks || '-') + '</td></tr>';
+        html += '<tr><th>Installation Energy (DC)</th><td>' + (r.battery.installation_energy_dc_mwh ? r.battery.installation_energy_dc_mwh.toFixed(1) + ' MWh' : '-') + '</td></tr>';
+        html += '<tr><th>Duration (BOL)</th><td>' + (r.battery.duration_bol_hr ? r.battery.duration_bol_hr.toFixed(2) + ' hr' : '-') + '</td></tr>';
+    }
+    if (r.rte) {
+        html += '<tr><th>System RTE</th><td>' + (r.rte.system_rte ? (r.rte.system_rte * 100).toFixed(1) + '%' : '-') + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    if (designData.description) {
+        html += '<p style="margin-top:12px;color:#666;font-size:13px;">📝 ' + escapeHtml(designData.description) + '</p>';
+    }
+    document.getElementById('summaryContent').innerHTML = html;
+}
+
+function renderDataTable(tableId, data) {
+    var tbody = document.querySelector('#' + tableId + ' tbody');
+    if (!data || typeof data !== 'object') { tbody.innerHTML = '<tr><td>No data</td></tr>'; return; }
+    var html = '';
+    function flatten(obj, prefix) {
+        for (var key in obj) {
+            var val = obj[key];
+            var label = prefix ? prefix + '.' + key : key;
+            if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                flatten(val, label);
+            } else {
+                var display = Array.isArray(val) ? JSON.stringify(val) : String(val);
+                html += '<tr><th style="width:40%">' + escapeHtml(label) + '</th><td>' + escapeHtml(display) + '</td></tr>';
+            }
+        }
+    }
+    flatten(data, '');
+    tbody.innerHTML = html || '<tr><td colspan="2">No data</td></tr>';
+}
+
+function loadAuditLog() {
+    fetch('/api/shared/designs/' + designId + '/audit-log')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var ul = document.getElementById('auditList');
+            if (!data.logs || data.logs.length === 0) {
+                ul.innerHTML = '<li class="audit-item" style="color:#999;">No audit entries yet.</li>';
+                return;
+            }
+            var html = '';
+            data.logs.forEach(function(log) {
+                html += '<li class="audit-item">' +
+                    '<span class="audit-action">' + log.action.toUpperCase() + '</span> by ' +
+                    '<strong>' + escapeHtml(log.actor_name || 'Unknown') + '</strong>' +
+                    (log.detail ? ' — ' + escapeHtml(log.detail) : '') +
+                    '<br><span class="audit-time">' + (log.created_at || '') + '</span>' +
+                    '</li>';
+            });
+            ul.innerHTML = html;
+        });
+}
+
+function loadRevisions() {
+    fetch('/api/shared/designs?project=' + encodeURIComponent(designData.project_name) + '&per_page=100')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var div = document.getElementById('revisionTimeline');
+            if (!data.designs || data.designs.length <= 0) { div.innerHTML = 'No revisions'; return; }
+            var html = '';
+            // Sort by revision
+            var sorted = data.designs.slice().sort(function(a,b) { return a.revision - b.revision; });
+            sorted.forEach(function(d) {
+                var cls = 'rev-chip';
+                if (d.id === designId) cls += ' current';
+                else if (d.status === 'submitted') cls += ' submitted';
+                html += '<a href="/shared/' + d.id + '" class="' + cls + '">Rev.' + d.revision + ' (' + d.status + ')</a>';
+            });
+            div.innerHTML = html;
+        });
+}
+
+function editDesign() {
+    alert('Edit functionality will be available in Phase C. For now, use the API: PUT /api/shared/designs/' + designId);
+}
+
+function submitDesign() {
+    if (!confirm('Mark this design as SUBMITTED? It will be locked for editing.')) return;
+    fetch('/api/shared/designs/' + designId + '/submit', { method: 'POST' })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(res) {
+            if (res.ok) { location.reload(); }
+            else { alert('Error: ' + (res.data.error || 'Unknown error')); }
+        });
+}
+
+function showUnlockModal() { document.getElementById('unlockModal').classList.add('show'); }
+function hideUnlockModal() { document.getElementById('unlockModal').classList.remove('show'); document.getElementById('unlockReason').value = ''; }
+
+function confirmUnlock() {
+    var reason = document.getElementById('unlockReason').value.trim();
+    if (!reason) { alert('Please provide a reason for unlocking.'); return; }
+    fetch('/api/shared/designs/' + designId + '/unlock', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({reason: reason})
+    })
+    .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+    .then(function(res) {
+        if (res.ok) { hideUnlockModal(); location.reload(); }
+        else { alert('Error: ' + (res.data.error || 'Unknown error')); }
+    });
+}
+
+function newRevision() {
+    if (!confirm('Create a new revision (Rev.' + (designData.revision + 1) + ') from this design?')) return;
+    fetch('/api/shared/designs/' + designId + '/new-revision', { method: 'POST' })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(res) {
+            if (res.ok) { window.location.href = '/shared/' + res.data.id; }
+            else { alert('Error: ' + (res.data.error || 'Unknown error')); }
+        });
+}
+
+function deleteDesign() {
+    if (!confirm('Delete this draft design? This cannot be undone.')) return;
+    fetch('/api/shared/designs/' + designId, { method: 'DELETE' })
+        .then(function(r) { return r.json().then(function(d) { return {ok: r.ok, data: d}; }); })
+        .then(function(res) {
+            if (res.ok) { window.location.href = '/shared/'; }
+            else { alert('Error: ' + (res.data.error || 'Unknown error')); }
+        });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

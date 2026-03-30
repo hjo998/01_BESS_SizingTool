@@ -1,0 +1,29 @@
+{
+  "JF2 0.25 DC LINK": {
+    "module_type": "EP096636PFB1",
+    "rack_type": "NR27N414L_P15190NB3",
+    "rack_energy_kwh": 852.096,
+    "gen": "Gen3 (%)",
+    "nameplate_energy_mwh": 5.112,
+    "soc_max": 1.00,
+    "soc_min": 0.00
+  },
+  "JF2 0.25 AC LINK": {
+    "module_type": "EP096636PFB1",
+    "rack_type": "NR27N414L_P15190NB3",
+    "rack_energy_kwh": 852.096,
+    "gen": "Gen3 (%)",
+    "nameplate_energy_mwh": 5.112,
+    "soc_max": 1.00,
+    "soc_min": 0.00
+  },
+  "JF3 0.25 DC LINK": {
+    "module_type": "NA",
+    "rack_type": "NA",
+    "rack_energy_kwh": 793.428,
+    "gen": "Gen3 (%)",
+    "nameplate_energy_mwh": 5.554,
+    "soc_max": 1.00,
+    "soc_min": 0.00
+  }
+}

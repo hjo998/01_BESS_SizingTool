@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-container {
+        max-width: 440px;
+        margin: 40px auto;
+        padding: 40px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    .auth-container h2 {
+        text-align: center;
+        margin-bottom: 8px;
+        color: #1a1a2e;
+        font-size: 24px;
+    }
+    .auth-container .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 32px;
+        font-size: 14px;
+    }
+    .form-group {
+        margin-bottom: 16px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        font-size: 13px;
+        color: #333;
+    }
+    .form-group input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+        box-sizing: border-box;
+    }
+    .form-group input:focus {
+        outline: none;
+        border-color: #a50034;
+        box-shadow: 0 0 0 3px rgba(165,0,52,0.1);
+    }
+    .form-row {
+        display: flex;
+        gap: 12px;
+    }
+    .form-row .form-group {
+        flex: 1;
+    }
+    .btn-auth {
+        width: 100%;
+        padding: 12px;
+        background: #a50034;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin-top: 8px;
+    }
+    .btn-auth:hover {
+        background: #8a002b;
+    }
+    .btn-auth:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    .auth-footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 13px;
+        color: #666;
+    }
+    .auth-footer a {
+        color: #a50034;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .auth-error {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        display: none;
+    }
+    .auth-success {
+        background: #f0fdf4;
+        color: #16a34a;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <h2>Register</h2>
+    <p class="subtitle">Create your SI Sizing Tool account</p>
+
+    <div class="auth-error" id="regError"></div>
+    <div class="auth-success" id="regSuccess"></div>
+
+    <form id="registerForm" onsubmit="return handleRegister(event)">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="username">Username *</label>
+                <input type="text" id="username" name="username" required minlength="3" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="display_name">Display Name *</label>
+                <input type="text" id="display_name" name="display_name" required placeholder="e.g. Hong Gildong">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" required autocomplete="email">
+        </div>
+        <div class="form-group">
+            <label for="department">Department</label>
+            <input type="text" id="department" name="department" placeholder="e.g. ESS Engineering">
+        </div>
+        <div class="form-group">
+            <label for="password">Password *</label>
+            <input type="password" id="password" name="password" required minlength="4" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+            <label for="password_confirm">Confirm Password *</label>
+            <input type="password" id="password_confirm" name="password_confirm" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn-auth" id="regBtn">Create Account</button>
+    </form>
+
+    <div class="auth-footer">
+        Already have an account? <a href="/auth/login">Login</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function handleRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('regBtn');
+    const errDiv = document.getElementById('regError');
+    const successDiv = document.getElementById('regSuccess');
+    btn.disabled = true;
+    errDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('password_confirm').value;
+    if (password !== confirm) {
+        errDiv.textContent = 'Passwords do not match';
+        errDiv.style.display = 'block';
+        btn.disabled = false;
+        return false;
+    }
+
+    try {
+        const resp = await fetch('/auth/api/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: password,
+                display_name: document.getElementById('display_name').value,
+                department: document.getElementById('department').value
+            })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            successDiv.textContent = 'Account created! Redirecting to login...';
+            successDiv.style.display = 'block';
+            setTimeout(() => { window.location.href = '/auth/login'; }, 1500);
+        } else {
+            errDiv.textContent = data.error || 'Registration failed';
+            errDiv.style.display = 'block';
+        }
+    } catch (err) {
+        errDiv.textContent = 'Network error. Please try again.';
+        errDiv.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+    }
+    return false;
+}
+</script>
+{% endblock %}

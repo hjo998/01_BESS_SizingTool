@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SI Sizing Tool Ver.2.0{% endblock %} | LG Energy Solution</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-inner">
+            <div class="brand">
+                <div class="brand-logo">
+                    <span class="brand-lg">LG</span>
+                    <span class="brand-es">Energy Solution</span>
+                </div>
+                <div class="brand-divider"></div>
+                <div class="brand-tool">SI Sizing Tool Ver.2.0</div>
+            </div>
+            <nav class="main-nav">
+                <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
+                <a href="/projects" class="nav-link {% if request.path == '/projects' %}active{% endif %}">Projects</a>
+                <a href="/shared/" class="nav-link {% if request.path.startswith('/shared') %}active{% endif %}">Shared DB</a>
+                {% if session.get('user_role') == 'admin' %}
+                <a href="/admin/parameters" class="nav-link {% if request.path == '/admin/parameters' %}active{% endif %}">Parameters</a>
+                <a href="/admin/audit" class="nav-link {% if request.path == '/admin/audit' %}active{% endif %}">Audit</a>
+                {% endif %}
+                <a href="/help" class="nav-link {% if request.path == '/help' %}active{% endif %}">Help</a>
+                <span class="nav-separator"></span>
+                {% if session.get('user_id') %}
+                <span class="nav-user" id="navUser">{{ session.get('display_name', 'User') }}</span>
+                <a href="#" class="nav-link nav-logout" onclick="handleLogout(event)">Logout</a>
+                {% else %}
+                <a href="/auth/login" class="nav-link">Login</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="site-main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash flash--{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <span class="footer-copy">&copy; 2024 LG Energy Solution. Internal Use Only.</span>
+            <span class="footer-version">v1.0.0</span>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+    async function handleLogout(e) {
+        e.preventDefault();
+        await fetch('/auth/api/logout', {method: 'POST'});
+        window.location.href = '/auth/login';
+    }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,1091 @@
+{% extends "base.html" %}
+
+{% block title %}Input — SI Sizing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">SI Sizing Input</div>
+    <div class="page-subtitle">Enter project parameters across all tabs, then click Calculate.</div>
+</div>
+
+<!-- Case context banner (hidden by default; shown by initCaseContext) -->
+<div id="caseBanner" class="case-banner" style="display:none;"></div>
+
+<!-- Error Panel -->
+<div class="error-panel" id="errorPanel">
+    <div class="error-panel__title">Calculation Error</div>
+    <div class="error-panel__msg" id="errorMsg"></div>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="tab-basic">1. Project Basic</button>
+    <button class="tab-btn" data-tab="tab-efficiency">2. Efficiency</button>
+    <button class="tab-btn" data-tab="tab-product">3. Product Selection</button>
+    <button class="tab-btn" data-tab="tab-auxiliary">4. Auxiliary Load</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 1 — Project Basic
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-basic">
+
+    <!-- ── Two-Column Layout: Left (Project Info) | Right (Operation & Augmentation) ── -->
+    <div class="eff-two-col">
+
+        <!-- LEFT COLUMN -->
+        <div class="eff-two-col__left">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--main">INFO</span>
+                Project &amp; System
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Project Identification</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="projectTitle">Project Title</label>
+                        <input type="text" id="projectTitle" name="project_title" placeholder="e.g. Project Alpha ESS" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="customer">Customer</label>
+                        <input type="text" id="customer" name="customer" placeholder="Customer name" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="projectLife">Project Life <span class="unit">yr</span></label>
+                        <input type="number" id="projectLife" name="project_life" value="20" min="1" max="30" step="1" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="application">Application</label>
+                        <select id="application" name="application">
+                            <option value="Peak Shifting">Peak Shifting</option>
+                            <option value="Frequency Regulation">Frequency Regulation</option>
+                            <option value="Renewable Firming">Renewable Firming</option>
+                            <option value="Arbitrage">Arbitrage</option>
+                            <option value="Backup Power">Backup Power</option>
+                            <option value="Voltage Support">Voltage Support</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="measurementMethod">Measurement Method</label>
+                        <select id="measurementMethod" name="measurement_method">
+                            <option value="Both CP">Both CP</option>
+                            <option value="CPCV/CP">CPCV/CP</option>
+                            <option value="Both CPCV">Both CPCV</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">System Requirements</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="requiredPower">Required Power <span class="unit">MW</span></label>
+                        <input type="number" id="requiredPower" name="required_power_mw" value="100" min="0.1" step="0.1" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="requiredEnergy">Required Energy <span class="unit">MWh</span></label>
+                        <input type="number" id="requiredEnergy" name="required_energy_mwh" value="400" min="0.1" step="0.1" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="poiLevel">POI Level</label>
+                        <select id="poiLevel" name="poi_level">
+                            <option value="HV">HV (High Voltage)</option>
+                            <option value="MV">MV (Medium Voltage)</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--compact" id="voltageLevelGroup" style="display:none;">
+                        <label for="voltageLevel">Voltage Level <span class="unit">kV</span></label>
+                        <input type="number" id="voltageLevel" name="voltage_level_kv" value="" min="1" max="500" step="0.1" placeholder="e.g. 154" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="powerFactor">Power Factor</label>
+                        <input type="number" id="powerFactor" name="power_factor" value="0.95" min="0.5" max="1.0" step="0.001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="auxPowerSource">Aux Power Source</label>
+                        <select id="auxPowerSource" name="aux_power_source">
+                            <option value="Battery">Battery</option>
+                            <option value="Grid">Grid</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="oversizingYear">Oversizing Year <span class="unit required">yr (required)</span></label>
+                        <input type="number" id="oversizingYear" name="oversizing_year" value="5" min="1" max="30" step="1" required />
+                        <span class="field-hint">Target year for energy guarantee. Used as 1st augmentation year when augmentation is added.</span>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="linkOverride">No. of LINKs (Override) <span class="unit">units</span></label>
+                        <input type="number" id="linkOverride" name="link_override" value="" min="2" step="2" placeholder="Auto" />
+                        <span class="field-hint">Leave blank for auto-calculation. Set to manually fix the LINK count.</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Environmental Conditions</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="temperature">Ambient Temp. <span class="unit">°C</span></label>
+                        <input type="number" id="temperature" name="temperature_c" value="45" min="25" max="50" step="1" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="altitude">Altitude</label>
+                        <select id="altitude" name="altitude">
+                            <option value="<1000">&lt; 1000 m</option>
+                            <option value="1000-1500">1000 – 1500 m</option>
+                            <option value="1500-2000">1500 – 2000 m</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VERTICAL DIVIDER -->
+        <div class="eff-two-col__divider"></div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="eff-two-col__right">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--aux">OPS</span>
+                Operation &amp; Augmentation
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Charge / Discharge Pattern</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="restSocType">Rest SOC Type</label>
+                        <select id="restSocType" name="rest_soc_type">
+                            <option value="High">High</option>
+                            <option value="Mid" selected>Mid</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="restSocValue">Rest SOC <span class="unit">%</span></label>
+                        <input type="number" id="restSocValue" name="rest_soc_value" value="30" min="0" max="100" step="1" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="cyclePerDay">Cycle / Day <span class="unit">cycles</span></label>
+                        <input type="number" id="cyclePerDay" name="cycle_per_day" value="1" min="0.5" max="4" step="0.5" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="operationDaysPerYear">Days / Year <span class="unit">days</span></label>
+                        <input type="number" id="operationDaysPerYear" name="operation_days_per_year" value="365" min="1" max="365" step="1" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">Augmentation</div>
+                <div class="aug-panel" id="augCompactPanel">
+                    <table class="aug-table" id="augTable">
+                        <thead>
+                            <tr>
+                                <th style="width:60px;">#</th>
+                                <th style="width:100px;">Year</th>
+                                <th style="width:140px;">Links</th>
+                                <th style="width:140px;">Energy (MWh)</th>
+                                <th style="width:50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="augCompactWaves">
+                            <!-- Wave rows injected by JS -->
+                        </tbody>
+                    </table>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+                        <button type="button" class="btn btn--outline btn--sm" id="augCompactAddBtn" onclick="addAugChip()">+ Add Wave</button>
+                        <button type="button" class="btn btn--outline btn--sm" id="autoAugBtnInput" onclick="autoRecommendAugmentation()" title="Auto-recommend augmentation waves based on energy requirement">&#9881; Auto-Recommend</button>
+                    </div>
+                    <div class="aug-recommend-result" id="augRecommendResultInput" style="display:none;margin-top:6px;padding:6px 8px;border-radius:6px;background:var(--color-surface-alt,#f8f9fa);font-size:12px;"></div>
+                    <span class="field-hint">Up to 4 waves. Set Year and Links per wave. Energy is auto-calculated from Links.</span>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.eff-two-col -->
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 2 — Efficiency Settings
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-efficiency">
+
+    <!-- Preset Buttons -->
+    <div class="eff-presets">
+        <span class="eff-presets__label">Quick Presets:</span>
+        <button type="button" class="btn btn--sm btn--outline eff-preset-btn" data-preset="typical">Typical</button>
+        <button type="button" class="btn btn--sm btn--outline eff-preset-btn" data-preset="conservative">Conservative</button>
+        <button type="button" class="btn btn--sm btn--outline eff-preset-btn" data-preset="optimistic">Optimistic</button>
+        <button type="button" class="btn btn--sm btn--outline eff-preset-btn active" data-preset="default">Default (v1.6.7)</button>
+    </div>
+
+    <!-- ── Two-Column Layout: Main (left) | Aux (right) ── -->
+    <div class="eff-two-col">
+
+        <!-- LEFT COLUMN: Main Chain -->
+        <div class="eff-two-col__left">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--main">MAIN</span>
+                System Efficiency
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">AC Side (Battery &rarr; POI)</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="dcCabling">DC Cabling <span class="eff-loss-tag" id="loss-dcCabling"></span></label>
+                        <input type="number" id="dcCabling" name="dc_cabling" value="0.999" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="pcsEfficiency">PCS Efficiency <span class="eff-loss-tag" id="loss-pcsEfficiency"></span></label>
+                        <input type="number" id="pcsEfficiency" name="pcs_efficiency" value="0.985" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="mvTransformer">MV Transformer <span class="eff-loss-tag" id="loss-mvTransformer"></span></label>
+                        <input type="number" id="mvTransformer" name="mv_transformer" value="0.993" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="lvCabling">LV Cable <span class="eff-loss-tag" id="loss-lvCabling"></span></label>
+                        <input type="number" id="lvCabling" name="lv_cabling" value="0.996" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="mvAcCabling">MV AC Cabling <span class="eff-loss-tag" id="loss-mvAcCabling"></span></label>
+                        <input type="number" id="mvAcCabling" name="mv_ac_cabling" value="0.999" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="hvTransformer">HV Transformer <span class="eff-loss-tag" id="loss-hvTransformer"></span></label>
+                        <input type="number" id="hvTransformer" name="hv_transformer" value="0.995" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="hvAcCabling">HV AC Cabling <span class="eff-loss-tag" id="loss-hvAcCabling"></span></label>
+                        <input type="number" id="hvAcCabling" name="hv_ac_cabling" value="0.999" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Battery Loss Factors</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact">
+                        <label for="appliedDod">Applied DoD <span class="eff-loss-tag" id="loss-appliedDod"></span></label>
+                        <input type="number" id="appliedDod" name="applied_dod" value="0.99" min="0.5" max="1.0" step="0.001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="lossFactors">Loss Factors <span class="eff-loss-tag" id="loss-lossFactors"></span></label>
+                        <input type="number" id="lossFactors" name="loss_factors" value="0.98802" min="0.9" max="1.0" step="0.00001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="mbmsConsumption">MBMS Consumption <span class="eff-loss-tag" id="loss-mbmsConsumption"></span></label>
+                        <input type="number" id="mbmsConsumption" name="mbms_consumption" value="0.999" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VERTICAL DIVIDER -->
+        <div class="eff-two-col__divider"></div>
+
+        <!-- RIGHT COLUMN: Aux Power -->
+        <div class="eff-two-col__right">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--aux">AUX</span>
+                Auxiliary Power
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Branching &amp; Aux Efficiency</div>
+                <div class="form-grid form-grid--2 form-grid--compact">
+                    <div class="form-group form-group--compact" style="grid-column: 1 / -1;">
+                        <label for="branchingPoint">Branching Point</label>
+                        <select id="branchingPoint" name="branching_point">
+                            <option value="MV">MV (Medium Voltage)</option>
+                            <option value="HV">HV (High Voltage)</option>
+                            <option value="LV">LV (Low Voltage)</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="auxTrLv">Aux TR Eff. <span class="eff-loss-tag" id="loss-auxTrLv"></span></label>
+                        <input type="number" id="auxTrLv" name="aux_tr_lv" value="0.985" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                    <div class="form-group form-group--compact">
+                        <label for="auxLineLv">Aux Line Eff. <span class="eff-loss-tag" id="loss-auxLineLv"></span></label>
+                        <input type="number" id="auxLineLv" name="aux_line_lv" value="0.999" min="0.9" max="1.0" step="0.0001" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Aux Stages -->
+            <div class="form-section form-section--compact">
+                <div class="aux-custom-stages" id="auxCustomStages">
+                    <div class="aux-custom-stages__header">
+                        <span class="aux-custom-stages__label">Custom Aux Stages</span>
+                        <button type="button" class="btn btn--sm btn--outline aux-add-stage-btn" id="addAuxStageBtn" onclick="addAuxStage()">+ Add Stage</button>
+                    </div>
+                    <div id="auxStagesContainer">
+                        <!-- Custom stages injected by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.eff-two-col -->
+
+    <!-- Visual Efficiency Chain Diagram (compact) -->
+    <div class="eff-chain eff-chain--compact" id="effChain">
+        <div class="eff-chain__title">Efficiency Chain: Battery &rarr; POI</div>
+        <div class="eff-chain__flow">
+            <div class="eff-chain__node eff-chain__node--start">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <rect x="4" y="8" width="24" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <rect x="12" y="4" width="8" height="4" rx="1" fill="currentColor"/>
+                    <rect x="8" y="14" width="6" height="6" rx="1" fill="currentColor" opacity="0.5"/>
+                    <rect x="16" y="14" width="6" height="6" rx="1" fill="currentColor" opacity="0.3"/>
+                </svg>
+                <div class="eff-chain__node-label">BAT</div>
+                <div class="eff-chain__node-value">100%</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-dcCabling">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="dcCabling">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <path d="M4 16h6M22 16h6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M10 10c3 0 3 12 6 12s3-12 6-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <div class="eff-chain__node-label">DC Cable</div>
+                <div class="eff-chain__node-value" id="chain-val-dcCabling">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-pcs">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="pcs">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <rect x="4" y="6" width="24" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <path d="M10 20l4-7h4l4 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M10 13l4 7h4l4-7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+                    <text x="16" y="11" text-anchor="middle" font-size="5" font-weight="700" fill="currentColor">AC/DC</text>
+                </svg>
+                <div class="eff-chain__node-label">PCS</div>
+                <div class="eff-chain__node-value" id="chain-val-pcs">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-lvCab">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="lvCab">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <path d="M4 16h6M22 16h6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M10 10c3 0 3 12 6 12s3-12 6-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="16" cy="16" r="2" fill="currentColor" opacity="0.5"/>
+                </svg>
+                <div class="eff-chain__node-label">LV Cable</div>
+                <div class="eff-chain__node-value" id="chain-val-lvCab">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-mvTr">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="mvTr">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <circle cx="12" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="20" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <line x1="2" y1="16" x2="5" y2="16" stroke="currentColor" stroke-width="2"/>
+                    <line x1="27" y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <div class="eff-chain__node-label">MV TR</div>
+                <div class="eff-chain__node-value" id="chain-val-mvTr">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-mvAc">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="mvAc">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <path d="M4 16h6M22 16h6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M10 10c3 0 3 12 6 12s3-12 6-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="16" cy="16" r="2" fill="currentColor" opacity="0.5"/>
+                </svg>
+                <div class="eff-chain__node-label">MV Cable</div>
+                <div class="eff-chain__node-value" id="chain-val-mvAc">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-hvTr">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="hvTr">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <circle cx="12" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <circle cx="20" cy="16" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <line x1="2" y1="16" x2="5" y2="16" stroke="currentColor" stroke-width="2"/>
+                    <line x1="27" y1="16" x2="30" y2="16" stroke="currentColor" stroke-width="2"/>
+                    <text x="16" y="18" text-anchor="middle" font-size="5" font-weight="700" fill="currentColor">HV</text>
+                </svg>
+                <div class="eff-chain__node-label">HV TR</div>
+                <div class="eff-chain__node-value" id="chain-val-hvTr">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-hvAc">&mdash;</span></div>
+            <div class="eff-chain__node" data-stage="hvAc">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <path d="M4 16h6M22 16h6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                    <path d="M10 10c3 0 3 12 6 12s3-12 6-12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="14" y1="8" x2="18" y2="8" stroke="currentColor" stroke-width="1.5"/>
+                    <line x1="14" y1="24" x2="18" y2="24" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <div class="eff-chain__node-label">HV Cable</div>
+                <div class="eff-chain__node-value" id="chain-val-hvAc">&mdash;</div>
+            </div>
+            <div class="eff-chain__arrow"><span class="eff-chain__loss" id="chain-poi">&mdash;</span></div>
+            <div class="eff-chain__node eff-chain__node--end">
+                <svg class="eff-chain__icon" viewBox="0 0 32 32" width="20" height="20">
+                    <rect x="6" y="4" width="20" height="24" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <line x1="6" y1="10" x2="26" y2="10" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="16" cy="20" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                    <line x1="16" y1="16" x2="16" y2="20" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+                <div class="eff-chain__node-label">POI</div>
+                <div class="eff-chain__node-value" id="chain-val-poi">&mdash;</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auxiliary Power Path Diagram (compact) -->
+    <div class="eff-chain eff-chain--aux eff-chain--compact" id="effChainAux">
+        <div class="eff-chain__title">Auxiliary Power Path: Battery &rarr; AUX Load</div>
+        <div class="eff-chain__flow" id="auxChainFlow">
+            <!-- Dynamically rendered by JS based on branching point -->
+        </div>
+        <div class="aux-chain__summary" id="auxChainSummary">
+            <span class="aux-chain__summary-label">Aux Path Efficiency:</span>
+            <span class="aux-chain__summary-value" id="auxChainEffValue">&mdash;</span>
+        </div>
+    </div>
+
+    <!-- Loss Waterfall Bar -->
+    <div class="eff-waterfall" id="effWaterfall">
+        <div class="eff-waterfall__title">Loss Breakdown (per 100 MW input)</div>
+        <div class="eff-waterfall__bar" id="waterfallBar">
+            <!-- Segments injected by JS -->
+        </div>
+        <div class="eff-waterfall__legend" id="waterfallLegend">
+            <!-- Legend injected by JS -->
+        </div>
+    </div>
+
+    <!-- Live Efficiency Preview (Enhanced) -->
+    <div class="eff-preview" id="effPreview">
+        <div class="eff-item">
+            <span class="eff-item__label">Total Bat-POI Eff.</span>
+            <span class="eff-item__value" id="totalBatPoiEff">—</span>
+        </div>
+        <div class="eff-item">
+            <span class="eff-item__label">Total Battery Loss</span>
+            <span class="eff-item__value" id="totalBatLoss">—</span>
+        </div>
+        <div class="eff-item">
+            <span class="eff-item__label">DC-to-Aux Eff.</span>
+            <span class="eff-item__value" id="dcToAuxEff">—</span>
+        </div>
+        <div class="eff-item">
+            <span class="eff-item__label">Total System Eff.</span>
+            <span class="eff-item__value" id="totalSystemEff">—</span>
+        </div>
+        <div class="eff-item">
+            <span class="eff-item__label">Total Loss</span>
+            <span class="eff-item__value" id="totalLossPercent">—</span>
+        </div>
+    </div>
+
+    <!-- Efficiency Formula Breakdown (toggle) -->
+    <div class="eff-formula-toggle">
+        <button type="button" class="btn btn--outline btn--sm eff-formula-btn" onclick="toggleEffFormula()">
+            &#9660; Show Calculation Breakdown
+        </button>
+    </div>
+    <div class="eff-formula-panel" id="effFormulaPanel" style="display:none;">
+        <div class="eff-formula-section">
+            <div class="eff-formula-title">Battery → POI Efficiency (System Chain)</div>
+            <div class="eff-formula-eq" id="formulaBatPoi">—</div>
+        </div>
+        <div class="eff-formula-section">
+            <div class="eff-formula-title">Battery Loss Factor</div>
+            <div class="eff-formula-eq" id="formulaBatLoss">—</div>
+        </div>
+        <div class="eff-formula-section">
+            <div class="eff-formula-title">Total System Efficiency</div>
+            <div class="eff-formula-eq" id="formulaTotalSys">—</div>
+        </div>
+        <div class="eff-formula-section">
+            <div class="eff-formula-title">DC → Aux Efficiency (path: <span id="formulaAuxPath">MV</span>)</div>
+            <div class="eff-formula-eq" id="formulaDcToAux">—</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 3 — Product Selection
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-product">
+    <div class="product-selection-layout">
+        <!-- LEFT: Dropdowns -->
+        <div class="product-selection__controls">
+            <!-- Battery Product -->
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Battery Product</div>
+                <div class="form-group">
+                    <label for="batteryProductType">Battery Product Type</label>
+                    <select id="batteryProductType" name="battery_product_type">
+                        <option value="">-- Loading products... --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- PCS Selection (cascading) -->
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">PCS Selection</div>
+                <div class="form-group">
+                    <label for="pcsModel">PCS Model</label>
+                    <select id="pcsModel" name="pcs_model">
+                        <option value="">-- Loading PCS models... --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="pcsConfiguration">Configuration</label>
+                    <select id="pcsConfiguration" name="pcs_configuration" disabled>
+                        <option value="">-- Select PCS model first --</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product Spec Card -->
+            <div class="product-spec-card" id="productSpecCard">
+                <div class="form-section-title" style="margin-bottom:8px;">Selected Specifications</div>
+                <div id="productSpecList"></div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Topology Diagram -->
+        <div class="product-selection__topology">
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">PCS–Battery Topology</div>
+                <div class="topology-hint">Select a PCS configuration to see the connection diagram.</div>
+                <div class="topology-diagram" id="topologyDiagram">
+                    <!-- SVG injected by JS -->
+                </div>
+                <div class="topology-legend" id="topologyLegend" style="display:none;">
+                    <div class="topology-legend__item">
+                        <span class="topology-legend__color topology-legend__color--pcs"></span>
+                        <span>PCS Unit</span>
+                    </div>
+                    <div class="topology-legend__item">
+                        <span class="topology-legend__color topology-legend__color--link"></span>
+                        <span>Battery LINK</span>
+                    </div>
+                    <div class="topology-legend__item">
+                        <span class="topology-legend__color topology-legend__color--string"></span>
+                        <span>Inverter String</span>
+                    </div>
+                    <div class="topology-legend__item">
+                        <span class="topology-legend__color topology-legend__color--mvt"></span>
+                        <span>MVT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     TAB 4 — Auxiliary Load
+     ═══════════════════════════════════════════════════════════ -->
+<div class="tab-content" id="tab-auxiliary">
+    <div class="eff-two-col">
+        <!-- LEFT: Aux Consumption Info -->
+        <div class="eff-two-col__left">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--aux">AUX</span>
+                Auxiliary Consumption
+            </div>
+
+            <div class="aux-info-alert" style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px;color:#6d4c00;">
+                <strong>&#9888; Temperature Note:</strong> Auxiliary consumption values vary by ambient temperature.
+                The values shown below are design values for the selected product. Actual consumption may differ
+                at operating temperatures different from the design condition.
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Current Product Aux Data</div>
+                <div id="auxProductName" style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:12px;">
+                    No product selected — select a battery product in Tab 3.
+                </div>
+                <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);gap:12px;">
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">Peak Consumption</div>
+                        <div class="stat-card__value" id="auxPeakKw">—</div>
+                        <div class="stat-card__unit">kW per LINK</div>
+                    </div>
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">Standby Consumption</div>
+                        <div class="stat-card__value" id="auxStandbyKw">—</div>
+                        <div class="stat-card__unit">kW per LINK</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section form-section--compact" id="auxTotalSection" style="display:none;">
+                <div class="form-section-title">System-Level Aux Power</div>
+                <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:12px;">
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">No. of LINKs</div>
+                        <div class="stat-card__value" id="auxNumLinks">—</div>
+                        <div class="stat-card__unit">links</div>
+                    </div>
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">Total Aux (Peak)</div>
+                        <div class="stat-card__value" id="auxTotalPeakKw">—</div>
+                        <div class="stat-card__unit">kW</div>
+                    </div>
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">Total Aux (Peak)</div>
+                        <div class="stat-card__value" id="auxTotalPeakMw">—</div>
+                        <div class="stat-card__unit">MW</div>
+                    </div>
+                </div>
+                <p style="font-size:12px;color:#888;margin-top:8px;">
+                    System-level values are populated after running a calculation.
+                </p>
+            </div>
+        </div>
+
+        <!-- VERTICAL DIVIDER -->
+        <div class="eff-two-col__divider"></div>
+
+        <!-- RIGHT: How Aux Affects Sizing -->
+        <div class="eff-two-col__right">
+            <div class="eff-two-col__header">
+                <span class="eff-two-col__badge eff-two-col__badge--main">INFO</span>
+                How Aux Affects Sizing
+            </div>
+
+            <div class="form-section form-section--compact">
+                <div class="form-section-title">Efficiency Chain Impact</div>
+                <div style="font-size:13px;line-height:1.7;color:#444;">
+                    <p style="margin:0 0 12px 0;">
+                        Auxiliary loads (HVAC, BMS, fire suppression, lighting) consume power from the battery
+                        system, reducing the energy available at the Point of Interconnection (POI).
+                    </p>
+                    <div style="background:#f8f9fa;border-radius:8px;padding:14px 16px;margin-bottom:12px;font-family:monospace;font-size:12px;line-height:1.8;">
+                        <strong>Sizing Flow:</strong><br>
+                        Required Energy @ POI<br>
+                        &nbsp;&nbsp;&#247; Total Bat→POI Efficiency<br>
+                        &nbsp;&nbsp;&#247; Battery Loss Factor<br>
+                        &nbsp;&nbsp;= Required DC Energy<br><br>
+                        <strong>Aux Deduction (when source = Battery):</strong><br>
+                        Total Aux Power = Links &times; Peak kW per LINK<br>
+                        Dischargeable Energy = DC Energy &minus; Aux Power &times; Duration<br>
+                        &nbsp;&nbsp;&#247; DC-to-Aux Efficiency
+                    </div>
+                    <p style="margin:0 0 8px 0;">
+                        <strong>Aux Power Source = Battery:</strong> Aux load is subtracted from the battery's
+                        dischargeable energy, increasing the required number of LINKs.
+                    </p>
+                    <p style="margin:0 0 8px 0;">
+                        <strong>Aux Power Source = Grid:</strong> Aux load is supplied externally.
+                        No impact on battery sizing. The <em>DC-to-Aux Efficiency</em> path is still used
+                        for the efficiency chain calculation.
+                    </p>
+                    <p style="margin:0;color:#888;font-size:12px;">
+                        Current Aux Power Source: <strong id="auxSourceDisplay">—</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     Bottom Action Bar
+     ═══════════════════════════════════════════════════════════ -->
+<div class="btn-row">
+    <button type="button" class="btn btn--primary btn--lg" id="calculateBtn" onclick="submitCalculation()">
+        &#9654; Calculate
+    </button>
+    <button type="button" class="btn btn--dark" id="saveProjectBtn" onclick="saveProject()">
+        &#128190; Save Project
+    </button>
+    <button type="button" class="btn btn--outline" id="loadProjectBtn" onclick="loadProject()">
+        &#128194; Load Project
+    </button>
+    <span class="text-muted" id="saveStatus" style="font-size:12px;"></span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Results Section (shown after calculation)
+     ═══════════════════════════════════════════════════════════ -->
+<div id="results-section">
+    <div class="results-header">
+        <div class="results-title">Calculation Results</div>
+        <div class="results-actions">
+            <button class="btn btn--success btn--sm" onclick="exportToExcel()">&#8659; Export Excel</button>
+            <a href="/summary" class="btn btn--outline btn--sm" id="summaryLink" target="_blank">&#128196; Summary View</a>
+            <button class="btn btn--sm" onclick="showUploadModal()" style="background:#2e7d32;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">&#128228; Upload to Shared DB</button>
+        </div>
+    </div>
+
+    <!-- Hero KPI Cards (top-level summary) -->
+    <div class="stat-grid" id="kpiCards">
+        <div class="stat-card">
+            <div class="stat-card__label">No. of PCS</div>
+            <div class="stat-card__value" id="res-noPcs">—</div>
+            <div class="stat-card__unit">units</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__label">No. of LINKs</div>
+            <div class="stat-card__value" id="res-noLinks">—</div>
+            <div class="stat-card__unit">units</div>
+            <div class="stat-card__sub" id="res-noRacksSub" style="font-size:11px;color:var(--color-text-muted);margin-top:2px;"></div>
+        </div>
+        <div class="stat-card stat-card--accent">
+            <div class="stat-card__label">Installed Energy (DC)</div>
+            <div class="stat-card__value" id="res-instEnergy" title="">—</div>
+            <div class="stat-card__unit">MWh</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card__label">Usable Energy @POI</div>
+            <div class="stat-card__value" id="res-usableEnergy">—</div>
+            <div class="stat-card__unit">MWh ac</div>
+        </div>
+        <div class="stat-card stat-card--success">
+            <div class="stat-card__label">Duration (BOL)</div>
+            <div class="stat-card__value" id="res-duration">—</div>
+            <div class="stat-card__unit">hours</div>
+        </div>
+    </div>
+
+    <!-- Detailed Engineering Tables: 3-column layout -->
+    <div class="three-col">
+
+        <!-- Project Requirements -->
+        <div class="card">
+            <div class="card-title">Project Requirements</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Power</td><td class="eng-table__value" id="res-reqPower">—</td><td class="eng-table__unit">MW</td></tr>
+                    <tr><td class="eng-table__label">Energy</td><td class="eng-table__value" id="res-reqEnergy">—</td><td class="eng-table__unit">MWh</td></tr>
+                    <tr><td class="eng-table__label">Duration</td><td class="eng-table__value" id="res-reqDuration">—</td><td class="eng-table__unit">hr</td></tr>
+                    <tr><td class="eng-table__label">Temperature</td><td class="eng-table__value" id="res-temperature">—</td><td class="eng-table__unit">&deg;C</td></tr>
+                    <tr><td class="eng-table__label">Altitude</td><td class="eng-table__value" id="res-altitude">—</td><td class="eng-table__unit">m</td></tr>
+                    <tr><td class="eng-table__label">Aux Consumption</td><td class="eng-table__value" id="res-auxIncluded">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Augmentation</td><td class="eng-table__value" id="res-augIncluded">—</td><td class="eng-table__unit"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Battery System -->
+        <div class="card">
+            <div class="card-title">Battery System</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Product Type</td><td class="eng-table__value" id="res-productType" colspan="2">—</td></tr>
+                    <tr><td class="eng-table__label">No. of LINKs</td><td class="eng-table__value" id="res-detailLinks">—</td><td class="eng-table__unit">units</td></tr>
+                    <tr><td class="eng-table__label">No. of Racks</td><td class="eng-table__value" id="res-detailRacks">—</td><td class="eng-table__unit">units</td></tr>
+                    <tr><td class="eng-table__label">Racks per LINK</td><td class="eng-table__value" id="res-racksPerLink">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Power at DC</td><td class="eng-table__value" id="res-powerAtDc">—</td><td class="eng-table__unit">MW</td></tr>
+                    <tr><td class="eng-table__label">Installed Energy</td><td class="eng-table__value" id="res-detailInstEnergy">—</td><td class="eng-table__unit">MWh dc</td></tr>
+                    <tr><td class="eng-table__label">Usable @POI</td><td class="eng-table__value" id="res-detailUsableEnergy">—</td><td class="eng-table__unit">MWh ac</td></tr>
+                    <tr>
+                        <td class="eng-table__label">CP-rate
+                            <span class="tooltip-trigger" tabindex="0">?
+                                <span class="tooltip-content">CP-rate = Required Power @DC ÷ Installed Energy @DC.<br>Higher CP-rate means more stress on cells.</span>
+                            </span>
+                        </td>
+                        <td class="eng-table__value" id="res-cpRate">—</td>
+                        <td class="eng-table__unit">C</td>
+                    </tr>
+                    <tr><td class="eng-table__label">Power Oversizing</td><td class="eng-table__value" id="res-powerOversizing">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">Energy Oversizing</td><td class="eng-table__value" id="res-energyOversizing">—</td><td class="eng-table__unit">%</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PCS System -->
+        <div class="card">
+            <div class="card-title">PCS System</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Manufacturer</td><td class="eng-table__value" id="res-pcsManufacturer" colspan="2">—</td></tr>
+                    <tr><td class="eng-table__label">PCS Model</td><td class="eng-table__value" id="res-pcsModel" colspan="2">—</td></tr>
+                    <tr><td class="eng-table__label">PCS Size @25&deg;C</td><td class="eng-table__value" id="res-inverterSize">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">Derated Power</td><td class="eng-table__value" id="res-deratedPower">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">PCS Unit Power</td><td class="eng-table__value" id="res-pcsUnitPower">—</td><td class="eng-table__unit">MW</td></tr>
+                    <tr><td class="eng-table__label">No. of PCS</td><td class="eng-table__value" id="res-detailNoPcs">—</td><td class="eng-table__unit">units</td></tr>
+                    <tr><td class="eng-table__label">No. of MVT</td><td class="eng-table__value" id="res-noMvt">—</td><td class="eng-table__unit">units</td></tr>
+                    <tr><td class="eng-table__label">No. of Skid (PCS+MVT)</td><td class="eng-table__value" id="res-noSkid">—</td><td class="eng-table__unit">sets</td></tr>
+                    <tr><td class="eng-table__label">LINKs per PCS</td><td class="eng-table__value" id="res-linksPerPcs">—</td><td class="eng-table__unit"></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Efficiency & RTE Row -->
+    <div class="two-col">
+        <div class="card">
+            <div class="card-title">Efficiency Summary</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Battery &rarr; POI</td><td class="eng-table__value" id="res-effBatPoi">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">Battery Loss Factor</td><td class="eng-table__value" id="res-effBatLoss">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">DC &rarr; Aux</td><td class="eng-table__value" id="res-effDcAux">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">Total System</td><td class="eng-table__value" id="res-effTotal">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">System RTE</td><td class="eng-table__value eng-table__value--accent" id="res-rte">—</td><td class="eng-table__unit">%</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Reactive Power</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Total Apparent Power @POI</td><td class="eng-table__value" id="res-apparentPower">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">PF at MV</td><td class="eng-table__value" id="res-pfMv">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">PCS Sufficient</td><td class="eng-table__value" id="res-pcsSufficient">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Available S Total</td><td class="eng-table__value" id="res-availableS">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">Grid kVAR</td><td class="eng-table__value" id="res-gridKvar">—</td><td class="eng-table__unit">kVAR</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SOC & Convergence Info -->
+    <div class="two-col" id="socConvergenceRow" style="display:none;">
+        <div class="card">
+            <div class="card-title">SOC Operating Range</div>
+            <div class="soc-bar-wrap" id="socBarWrap">
+                <div class="soc-bar">
+                    <div class="soc-bar__zone soc-bar__zone--low" id="socZoneLow"></div>
+                    <div class="soc-bar__zone soc-bar__zone--active" id="socZoneActive"></div>
+                    <div class="soc-bar__zone soc-bar__zone--high" id="socZoneHigh"></div>
+                    <div class="soc-bar__marker soc-bar__marker--rest" id="socMarkerRest" title="Rest SOC"></div>
+                </div>
+                <div class="soc-bar__labels">
+                    <span id="socLabelLow">0%</span>
+                    <span id="socLabelMid" style="text-align:center;">Applied DoD: —</span>
+                    <span id="socLabelHigh" style="text-align:right;">100%</span>
+                </div>
+            </div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">SOC High</td><td class="eng-table__value" id="res-socHigh">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">SOC Low</td><td class="eng-table__value" id="res-socLow">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">SOC Rest</td><td class="eng-table__value" id="res-socRest">—</td><td class="eng-table__unit">%</td></tr>
+                    <tr><td class="eng-table__label">Applied DoD</td><td class="eng-table__value eng-table__value--accent" id="res-appliedDod">—</td><td class="eng-table__unit">%</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Convergence Status</div>
+            <table class="eng-table">
+                <tbody>
+                    <tr><td class="eng-table__label">Status</td><td class="eng-table__value" id="res-convStatus">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Iterations</td><td class="eng-table__value" id="res-convIterations">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Final &Delta; CP-rate</td><td class="eng-table__value" id="res-convDelta">—</td><td class="eng-table__unit"></td></tr>
+                </tbody>
+            </table>
+            <div style="margin-top:12px;">
+                <button type="button" class="btn btn--outline btn--sm" id="autoAugBtn" onclick="autoRecommendAugmentation()" title="Scan retention curve and auto-recommend augmentation waves">
+                    &#9881; Auto-Recommend Augmentation
+                </button>
+                <div class="aug-recommend-result" id="augRecommendResult" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:var(--color-surface-alt,#f8f9fa);font-size:12px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Retention & Energy Data Table -->
+    <div class="card">
+        <div class="retention-table__card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <span>Retention &amp; Energy Data Table</span>
+            <div class="ret-col-toggles" style="display:flex;gap:8px;font-size:11px;font-weight:400;">
+                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togColDc" onchange="toggleRetCol('colDc', this.checked)"> @DC
+                </label>
+                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togColDcAux" onchange="toggleRetCol('colDcAux', this.checked)"> @DC-Aux
+                </label>
+                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togColMv" onchange="toggleRetCol('colMv', this.checked)"> @MV
+                </label>
+            </div>
+        </div>
+        <div class="retention-table__wrap">
+            <table class="retention-table">
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th>Retention<br>%</th>
+                        <th>Total<br>Energy<br>(MWh)</th>
+                        <th class="colDc" style="display:none;">Disch.<br>@DC<br>(MWh)</th>
+                        <th class="colDcAux" style="display:none;">Disch.<br>@DC-Aux<br>(MWh)</th>
+                        <th class="colMv" style="display:none;">Disch.<br>@MV<br>(MWh)</th>
+                        <th>Disch.<br>@POI<br>(MWh)</th>
+                        <th class="colAug col-aug-header" style="display:none;">Aug.<br>Energy<br>(MWh)</th>
+                        <th class="colAug col-aug-header" style="display:none;">Total<br>Energy<br>(MWh)</th>
+                        <th class="colAug col-aug-header" style="display:none;">Cumu.<br>Disch.<br>Energy<br>(MWh)</th>
+                    </tr>
+                </thead>
+                <tbody id="retentionTableBody">
+                    <tr><td colspan="7" class="text-center text-muted">No data yet</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Retention Chart (below table) -->
+    <div class="card">
+        <div class="card-title">Dischargeable Energy @POI</div>
+        <div class="chart-wrap">
+            <canvas id="retentionChart" height="320"></canvas>
+        </div>
+    </div>
+
+    <!-- Bottom Action Bar (always visible when results shown) -->
+    <div class="bottom-action-bar" id="bottomActionBar">
+        <button class="btn btn--primary" id="btnSaveToCaseBottom" style="display:none;" onclick="window._manualSaveToCase()">Save to Case</button>
+        <a class="btn btn--ghost" id="btnBackToCasesBottom" style="display:none;" href="#">&larr; Back to Cases</a>
+        <button class="btn btn--success" onclick="exportToExcel()">&#8659; Export Excel</button>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+        <div class="loading-spinner-lg"></div>
+        <div class="loading-msg">Calculating...</div>
+        <div class="loading-sub">Running BESS sizing model</div>
+    </div>
+</div>
+
+<!-- Auto-save toast -->
+<div id="savedToast" class="saved-toast">Saved to case</div>
+
+<!-- Upload to Shared DB Modal -->
+<div id="uploadModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;justify-content:center;align-items:center;">
+    <div style="background:#fff;border-radius:12px;padding:32px;max-width:480px;width:90%;">
+        <h3 style="margin:0 0 16px 0;">&#128228; Upload to Shared DB</h3>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;font-size:13px;">Project Name *</label>
+            <input type="text" id="uploadProjectName"
+                   style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;"
+                   placeholder="e.g. Saudi Neom 100MW/400MWh">
+        </div>
+        <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-weight:600;font-size:13px;">Description (optional)</label>
+            <textarea id="uploadDescription" rows="2"
+                      style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;resize:vertical;"
+                      placeholder="Brief note about this design..."></textarea>
+        </div>
+        <div id="uploadError" style="background:#fef2f2;color:#dc2626;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;display:none;"></div>
+        <div id="uploadSuccess" style="background:#f0fdf4;color:#16a34a;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;display:none;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button onclick="hideUploadModal()" style="padding:8px 18px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer;">Cancel</button>
+            <button id="uploadBtn" onclick="doUploadToSharedDB()" style="padding:8px 18px;border:none;border-radius:6px;background:#2e7d32;color:#fff;cursor:pointer;font-weight:600;">Upload</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.case-banner {
+    padding: 8px 16px;
+    border-radius: var(--radius, 6px);
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+}
+.case-banner--loading { background: var(--color-bg, #f5f5f5); color: var(--color-text-muted, #888); }
+.case-banner--active  { background: #E3F2FD; color: #1565C0; border-left: 3px solid #1565C0; }
+.case-banner--error   { background: #FFEBEE; color: var(--color-danger, #c62828); border-left: 3px solid var(--color-danger, #c62828); }
+.case-banner a        { color: inherit; font-weight: 600; }
+
+.saved-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--color-success, #43A047);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: var(--radius, 6px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+    z-index: 300;
+}
+.saved-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.saved-toast.error {
+    background: var(--color-danger, #c62828);
+}
+
+.bottom-action-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    margin-top: 24px;
+    border-top: 2px solid var(--color-border, #e0e0e0);
+}
+.bottom-action-bar .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    border: none;
+    border-radius: var(--radius, 6px);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+.bottom-action-bar .btn--primary { background: var(--color-primary, #A50034); color: #fff; }
+.bottom-action-bar .btn--primary:hover { opacity: 0.9; }
+.bottom-action-bar .btn--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.bottom-action-bar .btn--ghost { background: transparent; color: var(--color-text-muted, #888); border: 1px solid var(--color-border, #ccc); }
+.bottom-action-bar .btn--ghost:hover { background: var(--color-bg, #f5f5f5); color: var(--color-dark, #333); text-decoration: none; }
+.bottom-action-bar .btn--success { background: var(--color-success, #43A047); color: #fff; }
+.bottom-action-bar .btn--success:hover { opacity: 0.9; }
+
+/* Tooltip for CP-rate etc. */
+.tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--color-border, #ccc);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: help;
+    position: relative;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+.tooltip-trigger .tooltip-content {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-dark, #333);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    white-space: nowrap;
+    z-index: 200;
+    line-height: 1.4;
+    pointer-events: none;
+}
+.tooltip-trigger:hover .tooltip-content,
+.tooltip-trigger:focus .tooltip-content {
+    display: block;
+}
+</style>
+{% endblock %}
