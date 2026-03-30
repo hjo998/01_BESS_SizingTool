@@ -1886,10 +1886,11 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 /* ── Augmentation columns ── */
 .retention-table .col-aug {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 12px;
     text-align: right;
     color: #B35600;
     background: rgba(230,92,0,0.04);
+    padding: 6px 8px;
 }
 .retention-table thead th.col-aug-header {
     background: linear-gradient(135deg, #8B4000 0%, #C76100 100%) !important;
@@ -1900,6 +1901,31 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
     text-align: right;
     font-weight: 600;
     color: #1A1A1A;
+    border-left: 2px solid #C76100;
+    padding-left: 10px;
+}
+.retention-table .col-aug-highlight {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-align: right;
+    font-weight: 700;
+    color: #8B2500;
+    background: rgba(139,37,0,0.10);
+    border-left: 3px solid #8B2500;
+}
+.retention-table thead th.col-aug-highlight-hdr {
+    background: linear-gradient(135deg, #6B1500 0%, #A84000 100%) !important;
+    font-weight: 700;
+}
+/* Vertical separator between @DC/@MV toggles and wave toggles */
+.ret-toggle-sep {
+    display: inline-block;
+    width: 1px;
+    height: 14px;
+    background: #bbb;
+    margin: 0 6px;
+    align-self: center;
+    flex-shrink: 0;
 }
 
 /* ── Last row emphasis (EOL) ── */
@@ -1966,3 +1992,134 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
     .retention-table tbody tr:nth-child(even) { background: #F5F5F5 !important; }
     .retention-table td.col-year { background: #E8F0EF !important; color: #333 !important; }
 }
+
+/* ── F4: Definition Tooltips ── */
+.def-icon {
+    display: inline-block;
+    width: 14px; height: 14px;
+    line-height: 14px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-primary, #2E7D6F);
+    border: 1px solid var(--color-primary, #2E7D6F);
+    border-radius: 50%;
+    cursor: help;
+    margin-left: 4px;
+    vertical-align: middle;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+    position: relative;
+}
+.def-icon:hover { opacity: 1; }
+
+.def-tooltip {
+    display: none;
+    position: absolute;
+    z-index: 9999;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: 300px;
+    max-width: 90vw;
+    background: #1a1a2e;
+    color: #e8e8e8;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    pointer-events: none;
+}
+.def-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1a1a2e;
+}
+.def-icon:hover .def-tooltip { display: block; }
+
+.def-tooltip__name {
+    font-weight: 700;
+    color: #7fdbca;
+    margin-bottom: 4px;
+}
+.def-tooltip__unit {
+    color: #999;
+    font-size: 11px;
+    margin-left: 6px;
+}
+.def-tooltip__desc {
+    margin-bottom: 6px;
+    color: #ccc;
+}
+.def-tooltip__formula {
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 11px;
+    white-space: pre-wrap;
+    color: #f0c674;
+}
+
+/* Result value tooltip (shows calculation breakdown) */
+.res-tooltip-wrap {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    border-bottom: 1px dotted var(--color-primary, #2E7D6F);
+}
+.res-tooltip-wrap .def-tooltip {
+    width: 340px;
+    bottom: calc(100% + 6px);
+}
+.res-tooltip-wrap:hover .def-tooltip { display: block; }
+
+/* ── F6: Usage Pattern ── */
+.usage-pattern {
+    margin-top: 16px;
+    padding: 12px;
+    background: var(--color-surface-alt, #f8f9fa);
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #e0e0e0);
+}
+.usage-pattern__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-primary, #2E7D6F);
+    margin-bottom: 10px;
+}
+.usage-pattern__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.usage-pattern__grid .form-group { margin-bottom: 0; }
+.usage-pattern__grid label { font-size: 11px; }
+.usage-pattern__grid input { font-size: 12px; padding: 4px 6px; }
+
+.avg-soc-panel {
+    margin-top: 10px;
+    padding: 10px;
+    background: #fff;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+.avg-soc-panel__result {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-primary, #2E7D6F);
+    margin-bottom: 8px;
+}
+.avg-soc-panel__breakdown {
+    font-size: 12px;
+    color: #666;
+    line-height: 1.6;
+}
+.avg-soc-panel__breakdown td { padding: 2px 8px 2px 0; }
+.avg-soc-panel__breakdown td:last-child { font-weight: 600; color: #333; }

@@ -206,6 +206,62 @@
         </div>
 
     </div><!-- /.eff-two-col -->
+
+    <!-- ── F6: Usage Pattern & Average SOC ── -->
+    <div class="card" id="usagePatternCard">
+        <div class="usage-pattern">
+            <div class="usage-pattern__title">Usage Pattern &amp; Average SOC</div>
+            <div class="usage-pattern__grid">
+                <div class="form-group">
+                    <label for="socMin">SOC Min <span class="unit">%</span></label>
+                    <input type="number" id="socMin" name="soc_min" value="1" min="0" max="100" step="1" />
+                </div>
+                <div class="form-group">
+                    <label for="socMax">SOC Max <span class="unit">%</span></label>
+                    <input type="number" id="socMax" name="soc_max" value="99" min="0" max="100" step="1" />
+                </div>
+                <div class="form-group">
+                    <label for="chargeHr">Charge Duration <span class="unit">hr</span></label>
+                    <input type="number" id="chargeHr" name="charge_hr" value="4" min="0.5" max="12" step="0.5" />
+                </div>
+                <div class="form-group">
+                    <label for="dischargeHr">Discharge Duration <span class="unit">hr</span></label>
+                    <input type="number" id="dischargeHr" name="discharge_hr" value="4" min="0.5" max="12" step="0.5" />
+                </div>
+                <div class="form-group">
+                    <label for="restSocPattern">Rest SOC <span class="unit">%</span></label>
+                    <input type="number" id="restSocPattern" name="rest_soc_pattern" value="30" min="0" max="100" step="1" />
+                </div>
+                <div class="form-group">
+                    <label>Cycle / Day</label>
+                    <input type="number" id="cyclePerDayPattern" value="1" min="0.5" max="4" step="0.5" disabled
+                           style="background:#eee;" title="Linked to Cycle/Day input above" />
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;align-items:flex-start;">
+                <div style="flex:1;">
+                    <canvas id="usagePatternChart" height="200"></canvas>
+                </div>
+                <div class="avg-soc-panel" style="flex:0 0 220px;">
+                    <div class="avg-soc-panel__result">
+                        Avg SOC: <span id="avgSocValue">—</span>%
+                    </div>
+                    <table class="avg-soc-panel__breakdown">
+                        <tr><td>Cycle Mid SOC</td><td id="avgSocMid">—</td></tr>
+                        <tr><td>Duty Hours</td><td id="avgSocDuty">—</td></tr>
+                        <tr><td>Rest Hours</td><td id="avgSocRest">—</td></tr>
+                        <tr><td>Rest SOC</td><td id="avgSocRestVal">—</td></tr>
+                        <tr style="border-top:1px solid #ddd;">
+                            <td><strong>Formula</strong></td>
+                            <td style="font-size:10px;color:#888;">(mid×duty + rest×rest_hr) / 24</td>
+                        </tr>
+                    </table>
+                    <button type="button" class="btn btn--outline btn--sm" onclick="calcAvgSoc()" style="margin-top:8px;width:100%;">Calculate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -895,7 +951,7 @@
     <div class="card">
         <div class="retention-table__card-title" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <span>Retention &amp; Energy Data Table</span>
-            <div class="ret-col-toggles" style="display:flex;gap:8px;font-size:11px;font-weight:400;">
+            <div class="ret-col-toggles" style="display:flex;gap:8px;font-size:11px;font-weight:400;flex-wrap:wrap;">
                 <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
                     <input type="checkbox" id="togColDc" onchange="toggleRetCol('colDc', this.checked)"> @DC
                 </label>
@@ -904,6 +960,19 @@
                 </label>
                 <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
                     <input type="checkbox" id="togColMv" onchange="toggleRetCol('colMv', this.checked)"> @MV
+                </label>
+                <span class="colAug ret-toggle-sep" style="display:none;"></span>
+                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave0" onchange="toggleRetCol('colWave0', this.checked)" checked> Initial
+                </label>
+                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave1" onchange="toggleRetCol('colWave1', this.checked)" checked> Aug 1
+                </label>
+                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave2" onchange="toggleRetCol('colWave2', this.checked)" checked> Aug 2
+                </label>
+                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave3" onchange="toggleRetCol('colWave3', this.checked)" checked> Aug 3
                 </label>
             </div>
         </div>
@@ -918,9 +987,16 @@
                         <th class="colDcAux" style="display:none;">Disch.<br>@DC-Aux<br>(MWh)</th>
                         <th class="colMv" style="display:none;">Disch.<br>@MV<br>(MWh)</th>
                         <th>Disch.<br>@POI<br>(MWh)</th>
-                        <th class="colAug col-aug-header" style="display:none;">Aug.<br>Energy<br>(MWh)</th>
-                        <th class="colAug col-aug-header" style="display:none;">Total<br>Energy<br>(MWh)</th>
-                        <th class="colAug col-aug-header" style="display:none;">Cumu.<br>Disch.<br>Energy<br>(MWh)</th>
+                        <th class="colAug colWave0 col-aug-header" style="display:none;">Initial<br>Energy<br>(MWh)</th>
+                        <th class="colAug colWave0 col-aug-header" style="display:none;">Initial<br>Disch.<br>@POI</th>
+                        <th class="colAug colWave1 col-aug-header" style="display:none;">Aug 1<br>Energy<br>(MWh)</th>
+                        <th class="colAug colWave1 col-aug-header" style="display:none;">Aug 1<br>Disch.<br>@POI</th>
+                        <th class="colAug colWave2 col-aug-header" style="display:none;">Aug 2<br>Energy<br>(MWh)</th>
+                        <th class="colAug colWave2 col-aug-header" style="display:none;">Aug 2<br>Disch.<br>@POI</th>
+                        <th class="colAug colWave3 col-aug-header" style="display:none;">Aug 3<br>Energy<br>(MWh)</th>
+                        <th class="colAug colWave3 col-aug-header" style="display:none;">Aug 3<br>Disch.<br>@POI</th>
+                        <th class="colAug col-aug-header" style="display:none;">Cumul.<br>Total<br>Energy</th>
+                        <th class="colAug col-aug-header col-aug-highlight-hdr" style="display:none;">Cumul.<br>Disch.<br>@POI</th>
                     </tr>
                 </thead>
                 <tbody id="retentionTableBody">

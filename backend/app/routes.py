@@ -1,6 +1,7 @@
 """BESS Sizing Tool — Flask Blueprint with all API endpoints."""
 import dataclasses
 import json
+import os
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 
@@ -645,6 +646,20 @@ def api_reactive_power():
         return jsonify({'error': str(exc)}), 400
     except Exception as exc:
         return jsonify({'error': f'Internal error: {exc}'}), 500
+
+
+@bp.route('/api/definitions', methods=['GET'])
+def api_definitions():
+    """Return field definitions for tooltips."""
+    import json as _json
+    defs_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'definitions.json')
+    try:
+        with open(defs_path, 'r') as f:
+            data = _json.load(f)
+        data.pop('_meta', None)
+        return jsonify(data), 200
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 500
 
 
 @bp.route('/api/rte', methods=['POST'])

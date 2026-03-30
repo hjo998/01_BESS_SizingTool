@@ -1,0 +1,280 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "Field definitions for BESS Sizing Tool tooltips"
+  },
+
+  "required_power_mw": {
+    "name": "Required Power @POI",
+    "unit": "MW",
+    "description": "Contracted active power output at Point of Interconnection",
+    "formula": "Contract requirement (input)"
+  },
+  "required_energy_mwh": {
+    "name": "Required Energy @POI",
+    "unit": "MWh",
+    "description": "Contracted energy capacity at Point of Interconnection",
+    "formula": "Contract requirement (input)"
+  },
+  "project_life": {
+    "name": "Project Life",
+    "unit": "years",
+    "description": "Total project operational lifetime for retention curve calculation",
+    "formula": "Contract requirement (input)"
+  },
+  "power_factor": {
+    "name": "Power Factor",
+    "unit": "",
+    "description": "Ratio of active power to apparent power at POI",
+    "formula": "P / S (typically 0.95)"
+  },
+  "oversizing_year": {
+    "name": "Oversizing Year",
+    "unit": "year",
+    "description": "Target year at which Disch.@POI must still meet Required Energy. Initial link count is optimized to satisfy this.",
+    "formula": "Optimizer increases links until Disch.@POI(year N) >= Required Energy"
+  },
+  "link_override": {
+    "name": "Link Override",
+    "unit": "EA",
+    "description": "Manual override for initial LINK count. When set, skips auto-calculation. Leave blank for automatic sizing.",
+    "formula": "Manual input (optional). Auto = ceil(req_energy / (nameplate × loss × eff)) rounded to links_per_pcs"
+  },
+  "aux_power_source": {
+    "name": "Aux Power Source",
+    "unit": "",
+    "description": "Where auxiliary power is drawn from. 'Battery' means aux load is subtracted from dischargeable energy, increasing required LINKs.",
+    "formula": "If Battery: disc_dc_aux = disc_dc - (aux_load / dc_to_aux_eff)"
+  },
+
+  "dc_cabling": {
+    "name": "DC Cabling Efficiency",
+    "unit": "",
+    "description": "Power loss in DC cables between battery rack and PCS",
+    "formula": "Loss = 1 - dc_cabling (e.g. 0.1%)"
+  },
+  "pcs_efficiency": {
+    "name": "PCS Efficiency",
+    "unit": "",
+    "description": "Power Conversion System efficiency (DC to AC conversion)",
+    "formula": "Loss = 1 - pcs_efficiency (e.g. 1.5%)"
+  },
+  "lv_cabling": {
+    "name": "LV Cable Efficiency",
+    "unit": "",
+    "description": "Power loss in low-voltage cables between PCS and MV transformer",
+    "formula": "Loss = 1 - lv_cabling (e.g. 0.4%)"
+  },
+  "mv_transformer": {
+    "name": "MV Transformer Efficiency",
+    "unit": "",
+    "description": "Medium-voltage transformer loss",
+    "formula": "Loss = 1 - mv_transformer (e.g. 0.7%)"
+  },
+  "mv_ac_cabling": {
+    "name": "MV AC Cabling Efficiency",
+    "unit": "",
+    "description": "Power loss in MV AC cables between MV transformer and HV transformer",
+    "formula": "Loss = 1 - mv_ac_cabling (e.g. 0.1%)"
+  },
+  "hv_transformer": {
+    "name": "HV Transformer Efficiency",
+    "unit": "",
+    "description": "High-voltage transformer loss",
+    "formula": "Loss = 1 - hv_transformer (e.g. 0.5%)"
+  },
+  "hv_ac_cabling": {
+    "name": "HV AC Cabling Efficiency",
+    "unit": "",
+    "description": "Power loss in HV AC cables to Point of Interconnection",
+    "formula": "Loss = 1 - hv_ac_cabling (e.g. 0.1%)"
+  },
+
+  "applied_dod": {
+    "name": "Applied Depth of Discharge",
+    "unit": "",
+    "description": "Usable portion of total battery capacity",
+    "formula": "Typically 0.99 (99% of nameplate is usable)"
+  },
+  "loss_factors": {
+    "name": "Battery Loss Factors",
+    "unit": "",
+    "description": "Combined battery-internal losses (cell variation, wiring, contactors)",
+    "formula": "Product of individual loss factors"
+  },
+  "mbms_consumption": {
+    "name": "MBMS Consumption",
+    "unit": "",
+    "description": "Module Battery Management System parasitic consumption",
+    "formula": "Typically 0.999 (0.1% loss)"
+  },
+  "total_battery_loss_factor": {
+    "name": "Total Battery Loss Factor",
+    "unit": "",
+    "description": "Combined battery-side losses before energy leaves the DC terminal",
+    "formula": "applied_dod × loss_factors × mbms_consumption"
+  },
+
+  "branching_point": {
+    "name": "Aux Branching Point",
+    "unit": "",
+    "description": "Where auxiliary power branches off from the main power path (MV or HV side)",
+    "formula": "Determines DC-to-AUX efficiency chain"
+  },
+  "aux_tr_lv": {
+    "name": "Aux Transformer Efficiency",
+    "unit": "",
+    "description": "Auxiliary power transformer efficiency (LV side)",
+    "formula": "Loss = 1 - aux_tr_lv"
+  },
+  "total_dc_to_aux_eff": {
+    "name": "DC-to-AUX Efficiency",
+    "unit": "",
+    "description": "Total efficiency from battery DC terminal to auxiliary load point",
+    "formula": "MV: dc_cabling × pcs × lv_cabling × mv_tr × mv_ac × aux_tr\nHV: adds hv_transformer"
+  },
+
+  "no_of_pcs": {
+    "name": "Number of PCS",
+    "unit": "EA",
+    "description": "Total Power Conversion System units required",
+    "formula": "max(ceil(req_power_dc / pcs_unit_power), ceil(no_of_links / links_per_pcs))"
+  },
+  "no_of_links": {
+    "name": "Number of LINKs",
+    "unit": "EA",
+    "description": "Total battery LINK modules. Each LINK is the smallest deployable battery unit.",
+    "formula": "no_of_pcs × links_per_pcs (or manual link_override)"
+  },
+  "links_per_pcs": {
+    "name": "LINKs per PCS",
+    "unit": "EA",
+    "description": "Number of battery LINKs connected to each PCS unit",
+    "formula": "Determined by PCS configuration (e.g. 2 for M10+JF3)"
+  },
+  "no_of_racks": {
+    "name": "Number of Racks",
+    "unit": "EA",
+    "description": "Total battery rack count",
+    "formula": "no_of_links × racks_per_link"
+  },
+  "no_of_mvt": {
+    "name": "Number of MV Transformers",
+    "unit": "EA",
+    "description": "Medium-voltage transformer count",
+    "formula": "Depends on PCS grouping and power rating"
+  },
+  "installation_energy_dc_mwh": {
+    "name": "Installation Energy DC",
+    "unit": "MWh",
+    "description": "Total installed DC energy capacity (nameplate)",
+    "formula": "no_of_links × nameplate_energy_per_link"
+  },
+  "dischargeable_energy_poi_mwh": {
+    "name": "Dischargeable Energy @POI",
+    "unit": "MWh",
+    "description": "Actual deliverable energy at Point of Interconnection after all losses",
+    "formula": "disc_mv × mv_to_poi_eff\ndisc_mv = disc_dc_aux × bat_to_mv_eff\ndisc_dc_aux = (total_energy × loss_factor) - (aux_load / dc_to_aux_eff)"
+  },
+  "duration_bol_hr": {
+    "name": "Duration @BOL",
+    "unit": "hr",
+    "description": "Discharge duration at Beginning of Life (before any degradation)",
+    "formula": "dischargeable_energy_poi / required_power_poi"
+  },
+  "cp_rate": {
+    "name": "CP Rate",
+    "unit": "",
+    "description": "C/P Rate — ratio of required power to installed DC energy. Determines retention curve lookup.",
+    "formula": "req_power_dc / installation_energy_dc"
+  },
+
+  "total_bat_poi_eff": {
+    "name": "Battery-to-POI Efficiency",
+    "unit": "%",
+    "description": "Total system efficiency from battery DC terminal to POI",
+    "formula": "dc_cabling × pcs × lv_cabling × mv_tr × mv_ac × hv_tr × hv_ac (7 stages)"
+  },
+  "total_efficiency": {
+    "name": "Total Efficiency",
+    "unit": "%",
+    "description": "Combined battery loss and system efficiency",
+    "formula": "total_bat_poi_eff × total_battery_loss_factor"
+  },
+  "system_rte": {
+    "name": "System RTE",
+    "unit": "%",
+    "description": "Round-Trip Efficiency — ratio of energy out to energy in for full charge-discharge cycle",
+    "formula": "discharge_eff × charge_eff × battery_dc_rte"
+  },
+
+  "retention_pct": {
+    "name": "Retention",
+    "unit": "%",
+    "description": "Remaining battery capacity as percentage of original nameplate",
+    "formula": "Lookup from retention curve based on CP rate, product type, and year"
+  },
+  "total_energy_mwh": {
+    "name": "Total Energy",
+    "unit": "MWh",
+    "description": "Remaining DC energy after degradation (before any losses)",
+    "formula": "installation_energy_dc × retention_pct / 100"
+  },
+
+  "power_oversizing": {
+    "name": "Power Oversizing",
+    "unit": "%",
+    "description": "Excess installed power above the requirement",
+    "formula": "(installed_power_dc - required_power) / required_power × 100"
+  },
+  "energy_oversizing": {
+    "name": "Energy Oversizing",
+    "unit": "%",
+    "description": "Excess dischargeable energy above the requirement",
+    "formula": "(dischargeable_poi - required_energy) / required_energy × 100"
+  },
+
+  "soc_high": {
+    "name": "SOC High",
+    "unit": "%",
+    "description": "Upper SOC limit during charging cycle",
+    "formula": "Based on product spec and cycle configuration"
+  },
+  "soc_low": {
+    "name": "SOC Low",
+    "unit": "%",
+    "description": "Lower SOC limit during discharging cycle",
+    "formula": "Based on product spec and cycle configuration"
+  },
+  "rest_soc": {
+    "name": "Rest SOC",
+    "unit": "%",
+    "description": "Battery state of charge during idle/standby periods",
+    "formula": "Input value (Mid=30%, High=40%, or custom)"
+  },
+  "cycle_per_day": {
+    "name": "Cycles per Day",
+    "unit": "",
+    "description": "Number of full charge-discharge cycles per day",
+    "formula": "Input value (typically 1 for 4hr system)"
+  },
+  "avg_soc": {
+    "name": "Average SOC",
+    "unit": "%",
+    "description": "Time-weighted average SOC over 24 hours including cycle and rest periods",
+    "formula": "(cycle_mid × duty_hours + rest_soc × rest_hours) / 24\ncycle_mid = (soc_min + soc_max) / 2\nduty_hours = charge_hr + discharge_hr\nrest_hours = 24 - duty_hours"
+  },
+
+  "apparent_power": {
+    "name": "Apparent Power @POI",
+    "unit": "kVA",
+    "description": "Total apparent power at POI including reactive component",
+    "formula": "S = P / power_factor"
+  },
+  "grid_kvar": {
+    "name": "Grid kVAR",
+    "unit": "kVAR",
+    "description": "Reactive power exchanged with the grid",
+    "formula": "Q = sqrt(S² - P²)"
+  }
+}

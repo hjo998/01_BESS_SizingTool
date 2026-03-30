@@ -27,6 +27,8 @@
         initCaseContext();
         initPoiVoltageLevel();
         initRestSocSync();
+        initDefinitionTooltips();
+        initUsagePattern();
     });
 
     // ── POI Level → Voltage Level toggle ──
@@ -1960,56 +1962,68 @@
             var hasAug = result.retention.lookup_source && result.retention.lookup_source.indexOf('augmentation') !== -1;
             var augStyle = hasAug ? '' : 'display:none;';
 
-            // Show/hide augmentation header columns
-            var augHeaders = document.querySelectorAll('.colAug');
-            for (var ai = 0; ai < augHeaders.length; ai++) {
-                augHeaders[ai].style.display = hasAug ? '' : 'none';
+            // Show/hide augmentation header columns + wave toggles
+            var augEls = document.querySelectorAll('.colAug');
+            for (var ai = 0; ai < augEls.length; ai++) {
+                augEls[ai].style.display = hasAug ? '' : 'none';
             }
 
-            // Collect augmentation wave data for per-year energy breakdown
-            var augWaves = collectAugMarkers();
-            var augWaveEnergies = [];
-            if (hasAug && result.retention.augmentation_detail) {
-                augWaveEnergies = result.retention.augmentation_detail;
+            // Per-wave details from backend
+            var waveDetails = (hasAug && result.retention.wave_details) ? result.retention.wave_details : null;
+            // Determine which waves exist
+            var waveKeys = waveDetails ? Object.keys(waveDetails).sort(function(a,b){return +a - +b;}) : [];
+
+            // Hide wave toggle checkboxes for waves that don't exist
+            for (var wi = 0; wi <= 3; wi++) {
+                var togLabel = document.getElementById('togWave' + wi);
+                if (togLabel) {
+                    var waveExists = hasAug && waveKeys.indexOf(String(wi)) !== -1;
+                    togLabel.parentElement.style.display = waveExists ? '' : 'none';
+                }
             }
 
-            // Base installation energy for computing aug-added energy
-            var baseInstEnergy = bat.installation_energy_dc_mwh || 0;
+            // Wave column visibility based on toggle state
+            var waveStyles = {};
+            for (var wi = 0; wi <= 3; wi++) {
+                var togEl = document.getElementById('togWave' + wi);
+                var isChecked = togEl ? togEl.checked : true;
+                var waveExists = waveKeys.indexOf(String(wi)) !== -1;
+                waveStyles[wi] = (hasAug && waveExists && isChecked) ? '' : 'display:none;';
+            }
 
             Object.keys(byYear).sort(function (a, b) { return +a - +b; }).forEach(function (yr) {
                 var d = byYear[yr];
                 var retLevel = d.retention_pct >= 85 ? 'high' : (d.retention_pct >= 70 ? 'mid' : 'low');
 
-                // Augmentation column values
-                var augEnergy = '—';
-                var cumulEnergy = '—';
-                var augPoi = '—';
-                if (hasAug) {
-                    // Aug energy = total_energy - what base alone would produce
-                    // Cumulative = total installed energy at this year
-                    cumulEnergy = d.total_energy_mwh.toFixed(1);
-                    augPoi = d.dischargeable_energy_poi_mwh.toFixed(1);
-                    // Aug added energy: difference from base retention
-                    if (result.retention.base_retention_by_year) {
-                        var baseD = result.retention.base_retention_by_year[yr];
-                        if (baseD) {
-                            var addedEnergy = d.total_energy_mwh - baseD.total_energy_mwh;
-                            augEnergy = addedEnergy > 0.05 ? '+' + addedEnergy.toFixed(1) : '—';
-                        }
+                // Per-wave cells
+                var waveCells = '';
+                for (var wi = 0; wi <= 3; wi++) {
+                    var ws = waveStyles[wi];
+                    if (waveDetails && waveDetails[String(wi)] && waveDetails[String(wi)].by_year && waveDetails[String(wi)].by_year[yr]) {
+                        var wd = waveDetails[String(wi)].by_year[yr];
+                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.energy_mwh.toFixed(3) + '</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.disch_poi_mwh.toFixed(3) + '</td>';
+                    } else {
+                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
                     }
                 }
 
+                // Cumulative columns (always show when aug active)
+                var cumulEnergy = hasAug ? d.total_energy_mwh.toFixed(3) : '—';
+                var cumulPoi = hasAug ? d.dischargeable_energy_poi_mwh.toFixed(3) : '—';
+
                 rows += '<tr>' +
                     '<td class="col-year">' + yr + '</td>' +
-                    '<td class="col-ret" data-level="' + retLevel + '">' + d.retention_pct.toFixed(2) + '%</td>' +
-                    '<td class="col-num">' + d.total_energy_mwh.toFixed(1) + '</td>' +
-                    '<td class="colDc col-num" style="' + dcStyle + '">' + (d.dischargeable_energy_dc_mwh != null ? d.dischargeable_energy_dc_mwh.toFixed(1) : '—') + '</td>' +
-                    '<td class="colDcAux col-num" style="' + dcAuxStyle + '">' + (d.dischargeable_energy_dc_aux_mwh != null ? d.dischargeable_energy_dc_aux_mwh.toFixed(1) : '—') + '</td>' +
-                    '<td class="colMv col-num" style="' + mvStyle + '">' + (d.dischargeable_energy_mv_mwh != null ? d.dischargeable_energy_mv_mwh.toFixed(1) : '—') + '</td>' +
-                    '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(1) + '</td>' +
-                    '<td class="colAug col-aug" style="' + augStyle + '">' + augEnergy + '</td>' +
+                    '<td class="col-ret" data-level="' + retLevel + '">' + d.retention_pct.toFixed(1) + '%</td>' +
+                    '<td class="col-num">' + d.total_energy_mwh.toFixed(3) + '</td>' +
+                    '<td class="colDc col-num" style="' + dcStyle + '">' + (d.dischargeable_energy_dc_mwh != null ? d.dischargeable_energy_dc_mwh.toFixed(3) : '—') + '</td>' +
+                    '<td class="colDcAux col-num" style="' + dcAuxStyle + '">' + (d.dischargeable_energy_dc_aux_mwh != null ? d.dischargeable_energy_dc_aux_mwh.toFixed(3) : '—') + '</td>' +
+                    '<td class="colMv col-num" style="' + mvStyle + '">' + (d.dischargeable_energy_mv_mwh != null ? d.dischargeable_energy_mv_mwh.toFixed(3) : '—') + '</td>' +
+                    '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(3) + '</td>' +
+                    waveCells +
                     '<td class="colAug col-aug-total" style="' + augStyle + '">' + cumulEnergy + '</td>' +
-                    '<td class="colAug col-aug-total" style="' + augStyle + '">' + augPoi + '</td>' +
+                    '<td class="colAug col-aug-highlight" style="' + augStyle + '">' + cumulPoi + '</td>' +
                     '</tr>';
             });
             tbody.innerHTML = rows;
@@ -2629,5 +2643,276 @@
             }
         }, 200);
     });
+
+    // ═══════════════════════════════════════════════════════════
+    // F4: Definition Tooltips
+    // ═══════════════════════════════════════════════════════════
+    var _definitions = null;
+
+    function initDefinitionTooltips() {
+        fetch('/api/definitions')
+            .then(function (r) { return r.ok ? r.json() : {}; })
+            .then(function (defs) {
+                _definitions = defs;
+                attachTooltips();
+            })
+            .catch(function () { _definitions = {}; });
+    }
+
+    function attachTooltips() {
+        if (!_definitions) return;
+        // Map input name attributes and result element IDs to definition keys
+        var nameMap = {
+            'required_power_mw': 'required_power_mw',
+            'required_energy_mwh': 'required_energy_mwh',
+            'project_life': 'project_life',
+            'power_factor': 'power_factor',
+            'oversizing_year': 'oversizing_year',
+            'link_override': 'link_override',
+            'aux_power_source': 'aux_power_source',
+            'dc_cabling': 'dc_cabling',
+            'pcs_efficiency': 'pcs_efficiency',
+            'lv_cabling': 'lv_cabling',
+            'mv_transformer': 'mv_transformer',
+            'mv_ac_cabling': 'mv_ac_cabling',
+            'hv_transformer': 'hv_transformer',
+            'hv_ac_cabling': 'hv_ac_cabling',
+            'applied_dod': 'applied_dod',
+            'loss_factors': 'loss_factors',
+            'mbms_consumption': 'mbms_consumption',
+            'branching_point': 'branching_point',
+            'aux_tr_lv': 'aux_tr_lv',
+            'aux_line_lv': 'aux_line_lv',
+            'rest_soc_value': 'rest_soc',
+            'cycle_per_day': 'cycle_per_day',
+            'temperature_c': 'temperature_c',
+        };
+        // Attach to input labels
+        Object.keys(nameMap).forEach(function (inputName) {
+            var defKey = nameMap[inputName];
+            var def = _definitions[defKey];
+            if (!def) return;
+            var inp = document.querySelector('[name="' + inputName + '"]');
+            if (!inp) return;
+            var label = inp.closest('.form-group');
+            if (!label) return;
+            var lbl = label.querySelector('label');
+            if (!lbl || lbl.querySelector('.def-icon')) return;
+            lbl.appendChild(createDefIcon(def));
+        });
+
+        // Attach to result elements
+        var resMap = {
+            'res-noPcs': 'no_of_pcs',
+            'res-noLinks': 'no_of_links',
+            'res-instEnergy': 'installation_energy_dc_mwh',
+            'res-usableEnergy': 'dischargeable_energy_poi_mwh',
+            'res-duration': 'duration_bol_hr',
+            'res-detailLinks': 'no_of_links',
+            'res-detailRacks': 'no_of_racks',
+            'res-detailInstEnergy': 'installation_energy_dc_mwh',
+            'res-detailUsableEnergy': 'dischargeable_energy_poi_mwh',
+            'res-cpRate': 'cp_rate',
+            'res-powerOversizing': 'power_oversizing',
+            'res-energyOversizing': 'energy_oversizing',
+            'res-effBatPoi': 'total_bat_poi_eff',
+            'res-effBatLoss': 'total_battery_loss_factor',
+            'res-effDcAux': 'total_dc_to_aux_eff',
+            'res-effTotal': 'total_efficiency',
+            'res-rte': 'system_rte',
+            'res-linksPerPcs': 'links_per_pcs',
+            'res-noMvt': 'no_of_mvt',
+            'res-apparentPower': 'apparent_power',
+            'res-gridKvar': 'grid_kvar',
+            'res-socHigh': 'soc_high',
+            'res-socLow': 'soc_low',
+            'res-socRest': 'rest_soc',
+        };
+        Object.keys(resMap).forEach(function (elId) {
+            var defKey = resMap[elId];
+            var def = _definitions[defKey];
+            if (!def) return;
+            var el = document.getElementById(elId);
+            if (!el) return;
+            // Wrap in tooltip container if not already wrapped
+            if (el.parentNode.classList && el.parentNode.classList.contains('res-tooltip-wrap')) return;
+            var wrapper = document.createElement('span');
+            wrapper.className = 'res-tooltip-wrap';
+            el.parentNode.insertBefore(wrapper, el);
+            wrapper.appendChild(el);
+            wrapper.appendChild(createDefTooltip(def));
+        });
+    }
+
+    function createDefIcon(def) {
+        var icon = document.createElement('span');
+        icon.className = 'def-icon';
+        icon.textContent = '?';
+        var tip = document.createElement('div');
+        tip.className = 'def-tooltip';
+        tip.innerHTML = '<div class="def-tooltip__name">' + escHtml(def.name) +
+            (def.unit ? '<span class="def-tooltip__unit">[' + escHtml(def.unit) + ']</span>' : '') +
+            '</div>' +
+            '<div class="def-tooltip__desc">' + escHtml(def.description) + '</div>' +
+            '<div class="def-tooltip__formula">' + escHtml(def.formula) + '</div>';
+        icon.appendChild(tip);
+        return icon;
+    }
+
+    function createDefTooltip(def) {
+        var tip = document.createElement('div');
+        tip.className = 'def-tooltip';
+        tip.innerHTML = '<div class="def-tooltip__name">' + escHtml(def.name) +
+            (def.unit ? '<span class="def-tooltip__unit">[' + escHtml(def.unit) + ']</span>' : '') +
+            '</div>' +
+            '<div class="def-tooltip__desc">' + escHtml(def.description) + '</div>' +
+            '<div class="def-tooltip__formula">' + escHtml(def.formula) + '</div>';
+        return tip;
+    }
+
+    function escHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // F6: Usage Pattern & Average SOC
+    // ═══════════════════════════════════════════════════════════
+    var usagePatternChart = null;
+
+    function initUsagePattern() {
+        // Sync cycle/day from main input
+        var mainCycle = document.getElementById('cyclePerDay');
+        var patternCycle = document.getElementById('cyclePerDayPattern');
+        if (mainCycle && patternCycle) {
+            patternCycle.value = mainCycle.value;
+            mainCycle.addEventListener('change', function () {
+                patternCycle.value = mainCycle.value;
+            });
+        }
+        // Sync rest SOC from main input
+        var mainRestSoc = document.getElementById('restSocValue');
+        var patternRestSoc = document.getElementById('restSocPattern');
+        if (mainRestSoc && patternRestSoc) {
+            patternRestSoc.value = mainRestSoc.value;
+            mainRestSoc.addEventListener('change', function () {
+                patternRestSoc.value = mainRestSoc.value;
+            });
+        }
+        // Auto-calculate on input change
+        var inputs = ['socMin', 'socMax', 'chargeHr', 'dischargeHr', 'restSocPattern'];
+        inputs.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('change', function () { calcAvgSoc(); });
+        });
+    }
+
+    window.calcAvgSoc = function () {
+        var socMin = parseFloat(document.getElementById('socMin').value) || 0;
+        var socMax = parseFloat(document.getElementById('socMax').value) || 100;
+        var chargeHr = parseFloat(document.getElementById('chargeHr').value) || 4;
+        var dischargeHr = parseFloat(document.getElementById('dischargeHr').value) || 4;
+        var restSoc = parseFloat(document.getElementById('restSocPattern').value) || 30;
+
+        var cycleMid = (socMin + socMax) / 2;
+        var dutyHours = chargeHr + dischargeHr;
+        var restHours = 24 - dutyHours;
+        if (restHours < 0) restHours = 0;
+        var avgSoc = (cycleMid * dutyHours + restSoc * restHours) / 24;
+
+        setText('avgSocValue', avgSoc.toFixed(1));
+        setText('avgSocMid', cycleMid.toFixed(1) + '%');
+        setText('avgSocDuty', dutyHours.toFixed(1) + 'hr');
+        setText('avgSocRest', restHours.toFixed(1) + 'hr');
+        setText('avgSocRestVal', restSoc.toFixed(0) + '%');
+
+        renderUsagePatternChart(socMin, socMax, chargeHr, dischargeHr, restSoc, avgSoc);
+    };
+
+    function renderUsagePatternChart(socMin, socMax, chargeHr, dischargeHr, restSoc, avgSoc) {
+        var canvas = document.getElementById('usagePatternChart');
+        if (!canvas || !window.Chart) return;
+
+        // Build 24hr data points (0.5hr resolution)
+        var labels = [];
+        var data = [];
+        var bgColors = [];
+        var step = 0.5;
+        for (var h = 0; h < 24; h += step) {
+            labels.push(h.toFixed(1));
+            if (h < chargeHr) {
+                // Charging: ramp from socMin to socMax
+                var chPct = h / chargeHr;
+                data.push(socMin + (socMax - socMin) * chPct);
+                bgColors.push('rgba(76, 175, 80, 0.6)');
+            } else if (h < chargeHr + dischargeHr) {
+                // Discharging: ramp from socMax to socMin
+                var disPct = (h - chargeHr) / dischargeHr;
+                data.push(socMax - (socMax - socMin) * disPct);
+                bgColors.push('rgba(244, 67, 54, 0.6)');
+            } else {
+                // Rest
+                data.push(restSoc);
+                bgColors.push('rgba(158, 158, 158, 0.3)');
+            }
+        }
+
+        if (usagePatternChart) { usagePatternChart.destroy(); }
+
+        usagePatternChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'SOC (%)',
+                    data: data,
+                    backgroundColor: bgColors,
+                    borderWidth: 0,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    annotation: {
+                        annotations: {
+                            avgLine: {
+                                type: 'line',
+                                yMin: avgSoc, yMax: avgSoc,
+                                borderColor: '#FF9800',
+                                borderWidth: 2,
+                                borderDash: [6, 3],
+                                label: {
+                                    display: true,
+                                    content: 'Avg SOC: ' + avgSoc.toFixed(1) + '%',
+                                    position: 'end',
+                                    backgroundColor: '#FF9800',
+                                    font: { size: 10 },
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Hour', font: { size: 11 } },
+                        ticks: {
+                            callback: function (val, idx) { return idx % 4 === 0 ? labels[idx] : ''; },
+                            font: { size: 10 }
+                        },
+                        grid: { display: false }
+                    },
+                    y: {
+                        min: 0, max: 100,
+                        title: { display: true, text: 'SOC (%)', font: { size: 11 } },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
 
 }());
