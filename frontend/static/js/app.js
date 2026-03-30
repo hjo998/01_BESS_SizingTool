@@ -1925,6 +1925,12 @@
         setText('res-noMvt',           sum.no_of_mvt != null ? sum.no_of_mvt : (bat.no_of_mvt || '—'));
         setText('res-noSkid',          sum.no_of_skid || pcs.no_of_pcs);
         setText('res-linksPerPcs',     pcs.links_per_pcs);
+        // F1: M10 order quantity + transformer blocks
+        setText('res-noM10Order',      sum.no_of_m10_order != null ? sum.no_of_m10_order : '—');
+        setText('res-noTransBlocks',   sum.no_of_transformer_blocks != null ? sum.no_of_transformer_blocks : '—');
+        // Show/hide M10 row (only relevant for EPC Power M-system)
+        var m10Row = document.getElementById('row-m10Order');
+        if (m10Row) m10Row.style.display = sum.no_of_m10_order != null ? '' : 'none';
 
         // ── Efficiency Summary ──
         setText('res-effBatPoi',  (eff.total_bat_poi_eff * 100).toFixed(2));

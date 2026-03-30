@@ -51,6 +51,18 @@ from .models import (
 bp = Blueprint('main', __name__)
 
 
+def _calc_m10_order(pcs_result, no_of_pcs):
+    """Calculate M10 order quantity for EPC Power M-system.
+
+    M10 = 2 PCS slots. M5/M6 are not sold individually.
+    For non-EPC manufacturers, returns None (not applicable).
+    """
+    import math
+    if pcs_result.config.manufacturer == 'EPC Power' and pcs_result.config.model.startswith('M'):
+        return math.ceil(no_of_pcs / 2)
+    return None
+
+
 def _asdict(obj) -> dict:
     """Recursively convert dataclass instances (and nested ones) to dicts."""
     if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
@@ -444,6 +456,8 @@ def _run_calculation(body: dict) -> dict:
             'no_of_racks': bat_result.no_of_racks,
             'no_of_mvt': bat_result.no_of_mvt,
             'no_of_skid': bat_result.no_of_pcs,
+            'no_of_m10_order': _calc_m10_order(pcs_result, bat_result.no_of_pcs),
+            'no_of_transformer_blocks': bat_result.no_of_mvt,
             'installation_energy_dc_mwh': bat_result.installation_energy_dc_mwh,
             'dischargeable_energy_poi_mwh': bat_result.dischargeable_energy_poi_mwh,
             'duration_bol_hr': bat_result.duration_bol_hr,

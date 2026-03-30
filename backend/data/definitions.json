@@ -170,6 +170,18 @@
     "description": "Medium-voltage transformer count",
     "formula": "Depends on PCS grouping and power rating"
   },
+  "no_of_m10_order": {
+    "name": "M10 Order Quantity",
+    "unit": "EA",
+    "description": "EPC Power M10 units to order. M10 = 2 PCS slots. M5/M6 are not sold individually, only as part of M10.",
+    "formula": "ceil(no_of_pcs / 2). Only for EPC Power M-system."
+  },
+  "no_of_transformer_blocks": {
+    "name": "Transformer Blocks",
+    "unit": "sets",
+    "description": "Number of transformer block assemblies (MVT + associated PCS group)",
+    "formula": "= no_of_mvt"
+  },
   "installation_energy_dc_mwh": {
     "name": "Installation Energy DC",
     "unit": "MWh",
