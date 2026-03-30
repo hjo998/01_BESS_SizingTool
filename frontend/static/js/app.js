@@ -2009,23 +2009,52 @@
                 var d = byYear[yr];
                 var retLevel = d.retention_pct >= 85 ? 'high' : (d.retention_pct >= 70 ? 'mid' : 'low');
 
-                // Per-wave cells
+                // Per-wave cells (energy + DC/DC-Aux/MV when toggled + POI)
                 var waveCells = '';
                 for (var wi = 0; wi <= 3; wi++) {
                     var ws = waveStyles[wi];
                     if (waveDetails && waveDetails[String(wi)] && waveDetails[String(wi)].by_year && waveDetails[String(wi)].by_year[yr]) {
                         var wd = waveDetails[String(wi)].by_year[yr];
                         waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.energy_mwh.toFixed(3) + '</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colDc col-aug" style="' + ws + (showDc ? '' : 'display:none;') + '">' + (wd.disch_dc_mwh != null ? wd.disch_dc_mwh.toFixed(3) : '—') + '</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colDcAux col-aug" style="' + ws + (showDcAux ? '' : 'display:none;') + '">' + (wd.disch_dc_aux_mwh != null ? wd.disch_dc_aux_mwh.toFixed(3) : '—') + '</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colMv col-aug" style="' + ws + (showMv ? '' : 'display:none;') + '">' + (wd.disch_mv_mwh != null ? wd.disch_mv_mwh.toFixed(3) : '—') + '</td>';
                         waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.disch_poi_mwh.toFixed(3) + '</td>';
                     } else {
                         waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colDc col-aug" style="' + ws + (showDc ? '' : 'display:none;') + '">—</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colDcAux col-aug" style="' + ws + (showDcAux ? '' : 'display:none;') + '">—</td>';
+                        waveCells += '<td class="colAug colWave' + wi + ' colMv col-aug" style="' + ws + (showMv ? '' : 'display:none;') + '">—</td>';
                         waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
                     }
                 }
 
-                // Cumulative columns (always show when aug active)
-                var cumulEnergy = hasAug ? d.total_energy_mwh.toFixed(3) : '—';
-                var cumulPoi = hasAug ? d.dischargeable_energy_poi_mwh.toFixed(3) : '—';
+                // Cumulative columns: show existing + new installation separately in aug year
+                var cumulEnergy = '—';
+                var cumulPoi = '—';
+                if (hasAug) {
+                    // Check if a new wave starts this year — show "existing + new" format
+                    var newWaveEnergy = 0;
+                    var newWavePoi = 0;
+                    for (var nwi = 1; nwi <= 3; nwi++) {
+                        if (waveDetails && waveDetails[String(nwi)] && waveDetails[String(nwi)].start_year == yr) {
+                            var nwd = waveDetails[String(nwi)].by_year[yr];
+                            if (nwd) {
+                                newWaveEnergy += nwd.energy_mwh;
+                                newWavePoi += nwd.disch_poi_mwh;
+                            }
+                        }
+                    }
+                    if (newWaveEnergy > 0) {
+                        var existingEnergy = d.total_energy_mwh - newWaveEnergy;
+                        var existingPoi = d.dischargeable_energy_poi_mwh - newWavePoi;
+                        cumulEnergy = existingEnergy.toFixed(1) + ' + ' + newWaveEnergy.toFixed(1);
+                        cumulPoi = existingPoi.toFixed(1) + ' + ' + newWavePoi.toFixed(1);
+                    } else {
+                        cumulEnergy = d.total_energy_mwh.toFixed(3);
+                        cumulPoi = d.dischargeable_energy_poi_mwh.toFixed(3);
+                    }
+                }
 
                 rows += '<tr>' +
                     '<td class="col-year">' + yr + '</td>' +
@@ -2037,8 +2066,8 @@
                     '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(3) + '</td>' +
                     '<td class="colThroughput col-num" style="' + throughputStyle + '">' + (Math.min(d.dischargeable_energy_poi_mwh, reqEnergy) * opDays).toFixed(0) + '</td>' +
                     waveCells +
-                    '<td class="colAug col-aug-total" style="' + augStyle + '">' + cumulEnergy + '</td>' +
-                    '<td class="colAug col-aug-highlight" style="' + augStyle + '">' + cumulPoi + '</td>' +
+                    '<td class="colAug col-aug-total" style="' + augStyle + ';color:#888;">' + cumulEnergy + '</td>' +
+                    '<td class="colAug col-aug-highlight" style="' + augStyle + ';font-weight:700;color:var(--color-primary);font-size:13px;">' + cumulPoi + '</td>' +
                     '</tr>';
             });
             tbody.innerHTML = rows;

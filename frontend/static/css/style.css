@@ -1897,8 +1897,9 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 }
 .retention-table .col-aug-total {
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 11px;
     text-align: right;
+    color: #888;
     font-weight: 600;
     color: #1A1A1A;
     border-left: 2px solid #C76100;
@@ -1907,6 +1908,7 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 .retention-table .col-aug-highlight {
     font-family: var(--font-mono);
     font-size: 13px;
+    font-weight: 700;
     text-align: right;
     font-weight: 700;
     color: #8B2500;

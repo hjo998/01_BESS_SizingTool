@@ -296,6 +296,9 @@ def calculate_with_augmentation(
             wave_details[wi]["by_year"][year] = {
                 "retention_pct": round(retention_pct, 3),
                 "energy_mwh": round(wave_energy, 3),
+                "disch_dc_mwh": round(w_disc_dc, 3),
+                "disch_dc_aux_mwh": round(w_disc_dc_aux, 3),
+                "disch_mv_mwh": round(w_disc_mv, 3),
                 "disch_poi_mwh": round(w_disc_poi, 3),
             }
 
