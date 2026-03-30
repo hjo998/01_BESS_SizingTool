@@ -1954,9 +1954,15 @@
             var showDc = document.getElementById('togColDc') && document.getElementById('togColDc').checked;
             var showDcAux = document.getElementById('togColDcAux') && document.getElementById('togColDcAux').checked;
             var showMv = document.getElementById('togColMv') && document.getElementById('togColMv').checked;
+            var showThroughput = document.getElementById('togColThroughput') && document.getElementById('togColThroughput').checked;
             var dcStyle = showDc ? '' : 'display:none;';
             var dcAuxStyle = showDcAux ? '' : 'display:none;';
             var mvStyle = showMv ? '' : 'display:none;';
+            var throughputStyle = showThroughput ? '' : 'display:none;';
+
+            // Annual Energy Throughput: min(Disch@POI, Required Energy) × Operation Days
+            var reqEnergy = parseFloat(result.summary ? result.summary.required_energy_mwh : 0) || 0;
+            var opDays = parseFloat(document.getElementById('operationDaysPerYear') ? document.getElementById('operationDaysPerYear').value : 365) || 365;
 
             // Detect augmentation: check if retention source contains "augmentation"
             var hasAug = result.retention.lookup_source && result.retention.lookup_source.indexOf('augmentation') !== -1;
@@ -2021,6 +2027,7 @@
                     '<td class="colDcAux col-num" style="' + dcAuxStyle + '">' + (d.dischargeable_energy_dc_aux_mwh != null ? d.dischargeable_energy_dc_aux_mwh.toFixed(3) : '—') + '</td>' +
                     '<td class="colMv col-num" style="' + mvStyle + '">' + (d.dischargeable_energy_mv_mwh != null ? d.dischargeable_energy_mv_mwh.toFixed(3) : '—') + '</td>' +
                     '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(3) + '</td>' +
+                    '<td class="colThroughput col-num" style="' + throughputStyle + '">' + (Math.min(d.dischargeable_energy_poi_mwh, reqEnergy) * opDays).toFixed(0) + '</td>' +
                     waveCells +
                     '<td class="colAug col-aug-total" style="' + augStyle + '">' + cumulEnergy + '</td>' +
                     '<td class="colAug col-aug-highlight" style="' + augStyle + '">' + cumulPoi + '</td>' +

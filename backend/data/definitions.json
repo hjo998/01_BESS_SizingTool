@@ -284,6 +284,13 @@
     "formula": "Q = sqrt(S² - P²)"
   },
 
+  "annual_throughput": {
+    "name": "Annual Energy Throughput",
+    "unit": "MWh/yr",
+    "description": "Total energy discharged per year. Uses the lesser of actual Disch@POI and Required Energy, multiplied by operation days.",
+    "formula": "min(Disch@POI, Required Energy) × Operation Days/Year"
+  },
+
   "temperature_c": {
     "name": "Design Temperature",
     "unit": "°C",
