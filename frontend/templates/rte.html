@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}RTE Calculator — SI Sizing{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">Round-Trip Efficiency Calculator</div>
+    <div class="page-subtitle">Calculate system RTE at POI or MV reference point. Load values from Shared DB or enter manually.</div>
+</div>
+
+<div class="eff-two-col">
+    <!-- LEFT: Input -->
+    <div class="eff-two-col__left">
+        <div class="eff-two-col__header">
+            <span class="eff-two-col__badge eff-two-col__badge--main">INPUT</span>
+            Efficiency Parameters
+        </div>
+
+        <!-- Load from DB -->
+        <div class="form-section form-section--compact" style="margin-bottom:16px;">
+            <div class="form-section-title">Load from Shared DB</div>
+            <div style="display:flex;gap:8px;align-items:end;">
+                <div class="form-group form-group--compact" style="flex:1;">
+                    <label for="rteDesignSelect">Saved Design</label>
+                    <select id="rteDesignSelect" style="width:100%;">
+                        <option value="">— Select a design —</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn--outline btn--sm" onclick="loadRteFromDesign()" style="margin-bottom:4px;">Load</button>
+            </div>
+        </div>
+
+        <!-- Reference Point -->
+        <div class="form-section form-section--compact" style="margin-bottom:16px;">
+            <div class="form-section-title">Reference Point</div>
+            <div style="display:flex;gap:12px;">
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;">
+                    <input type="radio" name="rte_ref" value="poi" checked onchange="calcRte()"> @ POI
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;">
+                    <input type="radio" name="rte_ref" value="mv" onchange="calcRte()"> @ MV
+                </label>
+            </div>
+            <span class="field-hint">POI includes HV transformer. MV excludes HV side (for MV-level contracts).</span>
+        </div>
+
+        <!-- Efficiency Inputs -->
+        <div class="form-section form-section--compact">
+            <div class="form-section-title">System Efficiency Chain</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group form-group--compact">
+                    <label for="rteHvAc">HV AC Cabling</label>
+                    <input type="number" id="rteHvAc" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteHvTr">HV Transformer</label>
+                    <input type="number" id="rteHvTr" value="0.995" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteMvAc">MV AC Cabling</label>
+                    <input type="number" id="rteMvAc" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteMvTr">MV Transformer</label>
+                    <input type="number" id="rteMvTr" value="0.993" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteLvCab">LV Cabling</label>
+                    <input type="number" id="rteLvCab" value="0.996" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rtePcs">PCS Efficiency</label>
+                    <input type="number" id="rtePcs" value="0.985" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteDcCab">DC Cabling</label>
+                    <input type="number" id="rteDcCab" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteBatDcRte">Battery DC RTE</label>
+                    <input type="number" id="rteBatDcRte" value="0.95" min="0.5" max="1" step="0.001" onchange="calcRte()" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Battery Loss -->
+        <div class="form-section form-section--compact" style="margin-top:12px;">
+            <div class="form-section-title">Battery Loss Factor</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <div class="form-group form-group--compact">
+                    <label for="rteAppliedDod">Applied DoD</label>
+                    <input type="number" id="rteAppliedDod" value="0.99" min="0.5" max="1" step="0.001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteLossFactor">Loss Factors</label>
+                    <input type="number" id="rteLossFactor" value="0.98802" min="0.9" max="1" step="0.00001" onchange="calcRte()" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteMbms">MBMS</label>
+                    <input type="number" id="rteMbms" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VERTICAL DIVIDER -->
+    <div class="eff-two-col__divider"></div>
+
+    <!-- RIGHT: Results -->
+    <div class="eff-two-col__right">
+        <div class="eff-two-col__header">
+            <span class="eff-two-col__badge eff-two-col__badge--aux">RESULT</span>
+            RTE Calculation <span id="rteRefLabel" style="font-size:12px;color:#888;">@ POI</span>
+        </div>
+
+        <!-- Big RTE Display -->
+        <div style="text-align:center;padding:24px 0;margin-bottom:16px;">
+            <div style="font-size:56px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
+                <span id="rteSystemValue">—</span>%
+            </div>
+            <div style="font-size:14px;color:var(--color-text-muted);margin-top:4px;">System Round-Trip Efficiency</div>
+        </div>
+
+        <!-- Breakdown Table -->
+        <table class="eng-table" style="width:100%;">
+            <tbody>
+                <tr><td class="eng-table__label">Charge Efficiency (Grid → Battery)</td>
+                    <td class="eng-table__value" id="rteChargeEff">—</td><td class="eng-table__unit">%</td></tr>
+                <tr><td class="eng-table__label">Discharge Efficiency (Battery → Grid)</td>
+                    <td class="eng-table__value" id="rteDischargeEff">—</td><td class="eng-table__unit">%</td></tr>
+                <tr><td class="eng-table__label">Battery DC RTE</td>
+                    <td class="eng-table__value" id="rteBatRteDisplay">—</td><td class="eng-table__unit">%</td></tr>
+                <tr><td class="eng-table__label">Battery Loss Factor</td>
+                    <td class="eng-table__value" id="rteLossDisplay">—</td><td class="eng-table__unit">%</td></tr>
+                <tr style="border-top:2px solid #333;">
+                    <td class="eng-table__label" style="font-weight:700;">System RTE</td>
+                    <td class="eng-table__value" id="rteSystemDisplay" style="font-weight:700;">—</td>
+                    <td class="eng-table__unit">%</td></tr>
+            </tbody>
+        </table>
+
+        <!-- RTE Formula -->
+        <div style="margin-top:16px;background:#f8f9fa;border-radius:8px;padding:12px 16px;font-size:12px;font-family:'SF Mono','Consolas',monospace;line-height:1.8;">
+            <strong>Formula (<span id="rteFormulaRef">POI</span>):</strong><br>
+            Charge Eff = <span id="rteFormulaChain">—</span><br>
+            Discharge Eff = Charge Eff (same path)<br>
+            System RTE = Charge × Discharge × Battery DC RTE × Loss Factor
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // Load designs list
+    fetch('/api/shared/designs')
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (designs) {
+            var sel = document.getElementById('rteDesignSelect');
+            if (!sel) return;
+            (designs || []).forEach(function (d) {
+                var opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = d.project_name + ' (' + (d.created_at || '').substring(0, 10) + ')';
+                opt.dataset.design = JSON.stringify(d);
+                sel.appendChild(opt);
+            });
+        })
+        .catch(function () {});
+
+    window.loadRteFromDesign = function () {
+        var sel = document.getElementById('rteDesignSelect');
+        var opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.dataset.design) return;
+        var d;
+        try { d = JSON.parse(opt.dataset.design); } catch (e) { return; }
+        var inp = (d.input_data || {});
+        var eff = inp.efficiency || {};
+        // Fill efficiency inputs
+        var map = {
+            rteHvAc: eff.hv_ac_cabling, rteHvTr: eff.hv_transformer,
+            rteMvAc: eff.mv_ac_cabling, rteMvTr: eff.mv_transformer,
+            rteLvCab: eff.lv_cabling, rtePcs: eff.pcs_efficiency,
+            rteDcCab: eff.dc_cabling,
+        };
+        var bat = inp.battery_loss || {};
+        map.rteAppliedDod = bat.applied_dod;
+        map.rteLossFactor = bat.loss_factors;
+        map.rteMbms = bat.mbms_consumption;
+        Object.keys(map).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && map[id] != null) el.value = map[id];
+        });
+        calcRte();
+    };
+
+    window.calcRte = function () {
+        var ref = document.querySelector('input[name="rte_ref"]:checked');
+        var atPoi = !ref || ref.value === 'poi';
+
+        var hvAc = parseFloat(document.getElementById('rteHvAc').value) || 0.999;
+        var hvTr = parseFloat(document.getElementById('rteHvTr').value) || 0.995;
+        var mvAc = parseFloat(document.getElementById('rteMvAc').value) || 0.999;
+        var mvTr = parseFloat(document.getElementById('rteMvTr').value) || 0.993;
+        var lvCab = parseFloat(document.getElementById('rteLvCab').value) || 0.996;
+        var pcs = parseFloat(document.getElementById('rtePcs').value) || 0.985;
+        var dcCab = parseFloat(document.getElementById('rteDcCab').value) || 0.999;
+        var batRte = parseFloat(document.getElementById('rteBatDcRte').value) || 0.95;
+        var dod = parseFloat(document.getElementById('rteAppliedDod').value) || 0.99;
+        var lf = parseFloat(document.getElementById('rteLossFactor').value) || 0.988;
+        var mbms = parseFloat(document.getElementById('rteMbms').value) || 0.999;
+
+        var lossFactor = dod * lf * mbms;
+        var chainEff;
+        var chainLabel;
+        if (atPoi) {
+            chainEff = hvAc * hvTr * mvAc * mvTr * lvCab * pcs * dcCab;
+            chainLabel = 'HV_AC × HV_TR × MV_AC × MV_TR × LV × PCS × DC';
+        } else {
+            // MV reference: exclude HV side
+            chainEff = mvAc * mvTr * lvCab * pcs * dcCab;
+            chainLabel = 'MV_AC × MV_TR × LV × PCS × DC (no HV)';
+        }
+
+        var chargeEff = chainEff;
+        var dischargeEff = chainEff;
+        var systemRte = chargeEff * dischargeEff * batRte * lossFactor;
+
+        document.getElementById('rteSystemValue').textContent = (systemRte * 100).toFixed(1);
+        document.getElementById('rteChargeEff').textContent = (chargeEff * 100).toFixed(2);
+        document.getElementById('rteDischargeEff').textContent = (dischargeEff * 100).toFixed(2);
+        document.getElementById('rteBatRteDisplay').textContent = (batRte * 100).toFixed(1);
+        document.getElementById('rteLossDisplay').textContent = (lossFactor * 100).toFixed(2);
+        document.getElementById('rteSystemDisplay').textContent = (systemRte * 100).toFixed(2);
+        document.getElementById('rteRefLabel').textContent = atPoi ? '@ POI' : '@ MV';
+        document.getElementById('rteFormulaRef').textContent = atPoi ? 'POI' : 'MV';
+        document.getElementById('rteFormulaChain').textContent = chainLabel + ' = ' + (chargeEff * 100).toFixed(2) + '%';
+    };
+
+    // Auto-calculate on load
+    calcRte();
+})();
+</script>
+{% endblock %}

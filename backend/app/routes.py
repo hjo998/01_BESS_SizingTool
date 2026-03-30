@@ -84,6 +84,12 @@ def index():
         return '<h1>BESS Sizing Tool API</h1><p>Frontend not yet deployed.</p>', 200
 
 
+@bp.route('/rte')
+def rte_page():
+    """Render the standalone RTE calculator page."""
+    return render_template('rte.html')
+
+
 @bp.route('/projects')
 def view_projects():
     """Render the projects list page."""

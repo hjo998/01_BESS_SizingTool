@@ -20,6 +20,7 @@
             </div>
             <nav class="main-nav">
                 <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">Home</a>
+                <a href="/rte" class="nav-link {% if request.path == '/rte' %}active{% endif %}">RTE</a>
                 <a href="/projects" class="nav-link {% if request.path == '/projects' %}active{% endif %}">Projects</a>
                 <a href="/shared/" class="nav-link {% if request.path.startswith('/shared') %}active{% endif %}">Shared DB</a>
                 {% if session.get('user_role') == 'admin' %}
