@@ -154,12 +154,19 @@
 {% block extra_js %}
 <script>
 (function () {
-    // Load designs list
-    fetch('/api/shared/designs')
+    // Load designs list (public endpoint, no login required)
+    fetch('/api/rte/designs')
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (designs) {
             var sel = document.getElementById('rteDesignSelect');
             if (!sel) return;
+            if (!designs || designs.length === 0) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '— No saved designs found —';
+                sel.appendChild(opt);
+                return;
+            }
             (designs || []).forEach(function (d) {
                 var opt = document.createElement('option');
                 opt.value = d.id;
@@ -168,12 +175,23 @@
                 sel.appendChild(opt);
             });
         })
-        .catch(function () {});
+        .catch(function () {
+            var sel = document.getElementById('rteDesignSelect');
+            if (sel) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '— Failed to load designs —';
+                sel.appendChild(opt);
+            }
+        });
 
     window.loadRteFromDesign = function () {
         var sel = document.getElementById('rteDesignSelect');
         var opt = sel.options[sel.selectedIndex];
-        if (!opt || !opt.dataset.design) return;
+        if (!opt || !opt.value || !opt.dataset.design) {
+            alert('Select a design first.');
+            return;
+        }
         var d;
         try { d = JSON.parse(opt.dataset.design); } catch (e) { return; }
         var inp = (d.input_data || {});

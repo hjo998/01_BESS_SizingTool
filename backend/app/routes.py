@@ -90,6 +90,18 @@ def rte_page():
     return render_template('rte.html')
 
 
+@bp.route('/api/rte/designs', methods=['GET'])
+def api_rte_designs():
+    """Public read-only list of designs for RTE page (no login required)."""
+    from .shared_models import list_designs
+    db_path = current_app.config['DATABASE']
+    try:
+        result = list_designs(db_path)
+        return jsonify(result.get('designs', [])), 200
+    except Exception:
+        return jsonify([]), 200
+
+
 @bp.route('/projects')
 def view_projects():
     """Render the projects list page."""
