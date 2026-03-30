@@ -2744,17 +2744,21 @@
         });
     }
 
+    function buildTooltipHtml(def) {
+        return '<div class="def-tooltip__name">' + escHtml(def.name) +
+            (def.unit ? '<span class="def-tooltip__unit">[' + escHtml(def.unit) + ']</span>' : '') +
+            '</div>' +
+            '<div class="def-tooltip__desc">' + escHtml(def.description) + '</div>' +
+            '<div class="def-tooltip__formula">' + escHtml(def.formula) + '</div>';
+    }
+
     function createDefIcon(def) {
         var icon = document.createElement('span');
         icon.className = 'def-icon';
         icon.textContent = '?';
         var tip = document.createElement('div');
         tip.className = 'def-tooltip';
-        tip.innerHTML = '<div class="def-tooltip__name">' + escHtml(def.name) +
-            (def.unit ? '<span class="def-tooltip__unit">[' + escHtml(def.unit) + ']</span>' : '') +
-            '</div>' +
-            '<div class="def-tooltip__desc">' + escHtml(def.description) + '</div>' +
-            '<div class="def-tooltip__formula">' + escHtml(def.formula) + '</div>';
+        tip.innerHTML = buildTooltipHtml(def);
         icon.appendChild(tip);
         return icon;
     }
@@ -2762,11 +2766,7 @@
     function createDefTooltip(def) {
         var tip = document.createElement('div');
         tip.className = 'def-tooltip';
-        tip.innerHTML = '<div class="def-tooltip__name">' + escHtml(def.name) +
-            (def.unit ? '<span class="def-tooltip__unit">[' + escHtml(def.unit) + ']</span>' : '') +
-            '</div>' +
-            '<div class="def-tooltip__desc">' + escHtml(def.description) + '</div>' +
-            '<div class="def-tooltip__formula">' + escHtml(def.formula) + '</div>';
+        tip.innerHTML = buildTooltipHtml(def);
         return tip;
     }
 
@@ -2859,6 +2859,30 @@
 
         if (usagePatternChart) { usagePatternChart.destroy(); }
 
+        // Inline plugin for avg SOC line (no external chartjs-plugin-annotation needed)
+        var avgSocLinePlugin = {
+            id: 'avgSocLine',
+            afterDraw: function (chart) {
+                var yScale = chart.scales.y;
+                var ctx = chart.ctx;
+                var yPixel = yScale.getPixelForValue(avgSoc);
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([6, 3]);
+                ctx.strokeStyle = '#FF9800';
+                ctx.lineWidth = 2;
+                ctx.moveTo(chart.chartArea.left, yPixel);
+                ctx.lineTo(chart.chartArea.right, yPixel);
+                ctx.stroke();
+                // Label
+                ctx.fillStyle = '#FF9800';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText('Avg SOC: ' + avgSoc.toFixed(1) + '%', chart.chartArea.right - 4, yPixel - 4);
+                ctx.restore();
+            }
+        };
+
         usagePatternChart = new Chart(canvas.getContext('2d'), {
             type: 'bar',
             data: {
@@ -2872,30 +2896,11 @@
                     categoryPercentage: 1.0,
                 }]
             },
+            plugins: [avgSocLinePlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    annotation: {
-                        annotations: {
-                            avgLine: {
-                                type: 'line',
-                                yMin: avgSoc, yMax: avgSoc,
-                                borderColor: '#FF9800',
-                                borderWidth: 2,
-                                borderDash: [6, 3],
-                                label: {
-                                    display: true,
-                                    content: 'Avg SOC: ' + avgSoc.toFixed(1) + '%',
-                                    position: 'end',
-                                    backgroundColor: '#FF9800',
-                                    font: { size: 10 },
-                                }
-                            }
-                        }
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
                     x: {
                         title: { display: true, text: 'Hour', font: { size: 11 } },

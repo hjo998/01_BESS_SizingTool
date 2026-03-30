@@ -127,6 +127,12 @@
     "description": "Auxiliary power transformer efficiency (LV side)",
     "formula": "Loss = 1 - aux_tr_lv"
   },
+  "aux_line_lv": {
+    "name": "Aux Line LV Efficiency",
+    "unit": "",
+    "description": "Low-voltage auxiliary power line efficiency",
+    "formula": "Loss = 1 - aux_line_lv (e.g. 0.1%)"
+  },
   "total_dc_to_aux_eff": {
     "name": "DC-to-AUX Efficiency",
     "unit": "",
@@ -276,5 +282,12 @@
     "unit": "kVAR",
     "description": "Reactive power exchanged with the grid",
     "formula": "Q = sqrt(S² - P²)"
+  },
+
+  "temperature_c": {
+    "name": "Design Temperature",
+    "unit": "°C",
+    "description": "Ambient temperature for PCS derating calculation. Higher temperatures reduce PCS output capacity.",
+    "formula": "PCS derating applied above 25°C per manufacturer curve"
   }
 }
