@@ -65,6 +65,10 @@
                         <th>Retention %</th>
                         <th>Total Energy (MWh)</th>
                         <th>Dischargeable @POI (MWh)</th>
+                        {% if result.retention.wave_details %}
+                        <th class="col-aug-header">Cumul. Total Energy</th>
+                        <th class="col-aug-header col-aug-highlight-hdr">Cumul. Disch. @POI</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -73,10 +77,14 @@
                         <td class="col-year">{{ year }}</td>
                         <td class="col-ret"
                             data-level="{% if data.retention_pct >= 85 %}high{% elif data.retention_pct >= 70 %}mid{% else %}low{% endif %}">
-                            {{ "%.2f"|format(data.retention_pct) }}%
+                            {{ "%.1f"|format(data.retention_pct) }}%
                         </td>
-                        <td class="col-num">{{ "%.1f"|format(data.total_energy_mwh) }}</td>
-                        <td class="col-num">{{ "%.1f"|format(data.dischargeable_energy_poi_mwh) }}</td>
+                        <td class="col-num">{{ "%.3f"|format(data.total_energy_mwh) }}</td>
+                        <td class="col-num">{{ "%.3f"|format(data.dischargeable_energy_poi_mwh) }}</td>
+                        {% if result.retention.wave_details %}
+                        <td class="col-aug-total">{{ "%.3f"|format(data.total_energy_mwh) }}</td>
+                        <td class="col-aug-highlight">{{ "%.3f"|format(data.dischargeable_energy_poi_mwh) }}</td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
