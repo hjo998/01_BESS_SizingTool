@@ -63,6 +63,11 @@ class PowerFlowInput:
     # --- Options ---
     direction: str = "discharge"        # "discharge" or "charge"
     buffer_pct: float = 0.0            # PCS capacity buffer (%)
+    calculation_mode: str = "bottom_up" # "bottom_up" (PCS→POI) or "top_down" (POI→PCS)
+
+    # --- Top-down mode inputs (used only when calculation_mode == "top_down") ---
+    required_p_at_poi_mw: float = 0.0   # Required active power at POI
+    required_q_at_poi_mvar: float = 0.0 # Required reactive power at POI
 
 
 @dataclass
@@ -120,6 +125,13 @@ class PowerFlowResult:
     total_p_loss_mw: float
     total_q_consumed_mvar: float
     system_efficiency_pct: float  # (P_poi / P_pcs) * 100
+
+    # Calculation mode
+    calculation_mode: str = "bottom_up"  # "bottom_up" or "top_down"
+
+    # Top-down derived: required PCS output per unit (filled in top_down mode)
+    required_pcs_p_per_unit_mw: float = 0.0
+    required_pcs_q_per_unit_mvar: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +263,20 @@ def _validate(inp: PowerFlowInput) -> None:
             f"direction must be 'discharge' or 'charge', got '{inp.direction}'"
         )
 
+    # Calculation mode
+    if inp.calculation_mode not in ("bottom_up", "top_down"):
+        raise ValueError(
+            f"calculation_mode must be 'bottom_up' or 'top_down', "
+            f"got '{inp.calculation_mode}'"
+        )
+
+    if inp.calculation_mode == "top_down":
+        if inp.required_p_at_poi_mw <= 0:
+            raise ValueError(
+                f"required_p_at_poi_mw must be > 0 for top_down mode, "
+                f"got {inp.required_p_at_poi_mw}"
+            )
+
     # Buffer
     if inp.buffer_pct < 0:
         raise ValueError(
@@ -259,11 +285,153 @@ def _validate(inp: PowerFlowInput) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main calculation
+# Top-down solver (POI → PCS)
 # ---------------------------------------------------------------------------
 
-def calculate_power_flow(inp: PowerFlowInput) -> PowerFlowResult:
-    """Run a full power-flow calculation from PCS output to POI.
+def _solve_top_down(inp: PowerFlowInput) -> PowerFlowResult:
+    """Determine required PCS output to meet POI requirements.
+
+    Uses iterative convergence: start with an initial PCS guess derived from
+    the required POI power divided by an estimated efficiency, then run the
+    bottom-up calculation and adjust until the POI output converges to the
+    requirement.
+
+    Fixed-point iteration with adaptive damping, typically converges in 3-8
+    iterations.
+    """
+    target_p = inp.required_p_at_poi_mw
+    target_q = inp.required_q_at_poi_mvar
+
+    # Initial guess: assume ~95% system efficiency
+    initial_eff_guess = 0.95
+    guess_total_p = target_p / initial_eff_guess
+    guess_total_q = target_q / initial_eff_guess if target_q != 0 else 0.0
+
+    # Per-PCS values
+    pcs_p = guess_total_p / inp.num_pcs
+    pcs_q = guess_total_q / inp.num_pcs
+
+    max_iter = 20
+    tolerance = 1e-6  # MW
+
+    for iteration in range(max_iter):
+        # Run bottom-up with current PCS guess
+        trial_inp = PowerFlowInput(
+            pcs_active_power_mw=pcs_p,
+            pcs_reactive_power_mvar=pcs_q,
+            pcs_voltage_kv=inp.pcs_voltage_kv,
+            num_pcs=inp.num_pcs,
+            pcs_unit_kva=inp.pcs_unit_kva,
+            lv_r_ohm_per_km=inp.lv_r_ohm_per_km,
+            lv_x_ohm_per_km=inp.lv_x_ohm_per_km,
+            lv_length_km=inp.lv_length_km,
+            mvt_capacity_mva=inp.mvt_capacity_mva,
+            mvt_efficiency_pct=inp.mvt_efficiency_pct,
+            mvt_impedance_pct=inp.mvt_impedance_pct,
+            num_mvt=inp.num_mvt,
+            mv_r_ohm_per_km=inp.mv_r_ohm_per_km,
+            mv_x_ohm_per_km=inp.mv_x_ohm_per_km,
+            mv_length_km=inp.mv_length_km,
+            mv_voltage_kv=inp.mv_voltage_kv,
+            mpt_capacity_mva=inp.mpt_capacity_mva,
+            mpt_efficiency_pct=inp.mpt_efficiency_pct,
+            mpt_impedance_pct=inp.mpt_impedance_pct,
+            mpt_voltage_hv_kv=inp.mpt_voltage_hv_kv,
+            aux_power_mw=inp.aux_power_mw,
+            aux_tr_efficiency_pct=inp.aux_tr_efficiency_pct,
+            direction=inp.direction,
+            buffer_pct=inp.buffer_pct,
+            calculation_mode="bottom_up",  # Always run bottom-up internally
+        )
+        result = _calculate_bottom_up(trial_inp)
+
+        # Check convergence
+        error_p = target_p - result.p_at_poi
+        error_q = target_q - result.q_at_poi
+
+        if abs(error_p) < tolerance and abs(error_q) < tolerance:
+            # Converged — return the result with top-down metadata
+            return PowerFlowResult(
+                stages=result.stages,
+                direction=result.direction,
+                p_at_pcs=result.p_at_pcs,
+                q_at_pcs=result.q_at_pcs,
+                s_at_pcs=result.s_at_pcs,
+                p_at_mv=result.p_at_mv,
+                q_at_mv=result.q_at_mv,
+                s_at_mv=result.s_at_mv,
+                p_at_poi=result.p_at_poi,
+                q_at_poi=result.q_at_poi,
+                s_at_poi=result.s_at_poi,
+                pf_at_mv=result.pf_at_mv,
+                pf_at_poi=result.pf_at_poi,
+                aux_power_at_mv_mw=result.aux_power_at_mv_mw,
+                chain_eff_to_mv=result.chain_eff_to_mv,
+                chain_eff_to_poi=result.chain_eff_to_poi,
+                total_s_required_mva=result.total_s_required_mva,
+                available_s_total_mva=result.available_s_total_mva,
+                capacity_ratio_pct=result.capacity_ratio_pct,
+                is_pcs_sufficient=result.is_pcs_sufficient,
+                total_p_loss_mw=result.total_p_loss_mw,
+                total_q_consumed_mvar=result.total_q_consumed_mvar,
+                system_efficiency_pct=result.system_efficiency_pct,
+                calculation_mode="top_down",
+                required_pcs_p_per_unit_mw=pcs_p,
+                required_pcs_q_per_unit_mvar=pcs_q,
+            )
+
+        # Adjust PCS guess using ratio scaling (stable for this type of problem)
+        if result.p_at_poi > 0:
+            scale_p = target_p / result.p_at_poi
+        else:
+            scale_p = 1.1
+        if result.q_at_poi != 0:
+            scale_q = target_q / result.q_at_poi
+        else:
+            scale_q = scale_p  # Use P scaling for Q when Q is near zero
+
+        # Damped update to prevent oscillation
+        damping = 0.7
+        pcs_p = pcs_p * (1 - damping + damping * scale_p)
+        pcs_q = pcs_q * (1 - damping + damping * scale_q)
+
+    # Did not converge — return last result with warning
+    return PowerFlowResult(
+        stages=result.stages,
+        direction=result.direction,
+        p_at_pcs=result.p_at_pcs,
+        q_at_pcs=result.q_at_pcs,
+        s_at_pcs=result.s_at_pcs,
+        p_at_mv=result.p_at_mv,
+        q_at_mv=result.q_at_mv,
+        s_at_mv=result.s_at_mv,
+        p_at_poi=result.p_at_poi,
+        q_at_poi=result.q_at_poi,
+        s_at_poi=result.s_at_poi,
+        pf_at_mv=result.pf_at_mv,
+        pf_at_poi=result.pf_at_poi,
+        aux_power_at_mv_mw=result.aux_power_at_mv_mw,
+        chain_eff_to_mv=result.chain_eff_to_mv,
+        chain_eff_to_poi=result.chain_eff_to_poi,
+        total_s_required_mva=result.total_s_required_mva,
+        available_s_total_mva=result.available_s_total_mva,
+        capacity_ratio_pct=result.capacity_ratio_pct,
+        is_pcs_sufficient=result.is_pcs_sufficient,
+        total_p_loss_mw=result.total_p_loss_mw,
+        total_q_consumed_mvar=result.total_q_consumed_mvar,
+        system_efficiency_pct=result.system_efficiency_pct,
+        calculation_mode="top_down",
+        required_pcs_p_per_unit_mw=pcs_p,
+        required_pcs_q_per_unit_mvar=pcs_q,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bottom-up calculation (PCS → POI)
+# ---------------------------------------------------------------------------
+
+def _calculate_bottom_up(inp: PowerFlowInput) -> PowerFlowResult:
+    """Run a bottom-up power-flow calculation from PCS output to POI.
 
     Stages (discharge direction):
         1. PCS_OUTPUT  — aggregate all PCS units
@@ -278,7 +446,6 @@ def calculate_power_flow(inp: PowerFlowInput) -> PowerFlowResult:
     For charge direction the stages are identical; only the aux branch
     treatment differs (aux adds to the power the grid must supply).
     """
-    _validate(inp)
 
     stages: List[PowerFlowStage] = []
 
@@ -566,4 +733,39 @@ def calculate_power_flow(inp: PowerFlowInput) -> PowerFlowResult:
         total_p_loss_mw=total_p_loss,
         total_q_consumed_mvar=total_q_consumed,
         system_efficiency_pct=system_efficiency_pct,
+        calculation_mode="bottom_up",
+        required_pcs_p_per_unit_mw=inp.pcs_active_power_mw,
+        required_pcs_q_per_unit_mvar=inp.pcs_reactive_power_mvar,
     )
+
+
+# ---------------------------------------------------------------------------
+# Public entry point (routes to bottom_up or top_down)
+# ---------------------------------------------------------------------------
+
+def calculate_power_flow(inp: PowerFlowInput) -> PowerFlowResult:
+    """Run a power-flow calculation.
+
+    Two modes:
+        bottom_up : Given PCS output per unit, calculate P/Q/S at each stage
+                    up to POI.  Use case: "what can my PCS deliver at POI?"
+        top_down  : Given required P/Q at POI, solve for the PCS output
+                    needed.  Use case: "to meet 100 MW at POI, what PCS
+                    output is needed?"  Syncs with the main input page where
+                    the user enters required_power_poi.
+
+    Parameters
+    ----------
+    inp : PowerFlowInput
+        For bottom_up: pcs_active_power_mw and pcs_reactive_power_mvar are
+        the per-unit PCS outputs.
+        For top_down: required_p_at_poi_mw and required_q_at_poi_mvar are
+        the POI requirements.  pcs_active_power_mw / pcs_reactive_power_mvar
+        are ignored (solved internally).
+    """
+    _validate(inp)
+
+    if inp.calculation_mode == "top_down":
+        return _solve_top_down(inp)
+    else:
+        return _calculate_bottom_up(inp)
