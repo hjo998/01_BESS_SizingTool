@@ -37,7 +37,13 @@ except ImportError:
     _HAS_REACTIVE_POWER = False
 
 try:
-    from ..calculators.rte import RTEInput, calculate_rte
+    from ..calculators.power_flow import PowerFlowInput, calculate_power_flow
+    _HAS_POWER_FLOW = True
+except ImportError:
+    _HAS_POWER_FLOW = False
+
+try:
+    from ..calculators.rte import RTEInput, RTEResult, calculate_rte
     _HAS_RTE = True
 except ImportError:
     _HAS_RTE = False
@@ -419,14 +425,93 @@ def _run_calculation(body: dict) -> dict:
         )
         reactive_result = _asdict(calculate_reactive_power(rp_inp))
 
-    # --- RTE ---
-    rte_result = None
-    if _HAS_RTE:
-        rte_inp = RTEInput(
-            total_bat_poi_eff=eff_result.total_bat_poi_eff,
-            total_battery_loss_factor=eff_result.total_battery_loss_factor,
+    # --- Power Flow (impedance-based, replaces reactive_power for detailed analysis) ---
+    power_flow_result = None
+    if _HAS_POWER_FLOW:
+        # Get PCS per-unit active power from battery sizing
+        # Total P at PCS = required_power_poi / system_efficiency (approximate)
+        # But for top-down, we specify the POI requirement directly
+        pf_inp = PowerFlowInput(
+            pcs_active_power_mw=0,  # ignored in top_down
+            pcs_reactive_power_mvar=0,
+            pcs_voltage_kv=float(body.get('pcs_voltage_kv', 0.69)),
+            num_pcs=bat_result.no_of_pcs,
+            pcs_unit_kva=pcs_result.derated_power_kva,
+            # LV
+            lv_r_ohm_per_km=float(body.get('lv_r_ohm_per_km', 0.012)),
+            lv_x_ohm_per_km=float(body.get('lv_x_ohm_per_km', 0.018)),
+            lv_length_km=float(body.get('lv_length_km', 0.005)),
+            # MVT
+            mvt_capacity_mva=float(body.get('mvt_capacity_mva', 100.0)),
+            mvt_efficiency_pct=float(body.get('mvt_efficiency_pct', 98.9)),
+            mvt_impedance_pct=float(body.get('mvt_impedance_pct', 6.0)),
+            num_mvt=int(bat_result.no_of_mvt) if hasattr(bat_result, 'no_of_mvt') else 1,
+            # MV Line
+            mv_r_ohm_per_km=float(body.get('mv_r_ohm_per_km', 0.115)),
+            mv_x_ohm_per_km=float(body.get('mv_x_ohm_per_km', 0.125)),
+            mv_length_km=float(body.get('mv_length_km', 2.0)),
+            mv_voltage_kv=float(body.get('mv_voltage_kv', 34.5)),
+            # MPT
+            mpt_capacity_mva=float(body.get('mpt_capacity_mva', 300.0)),
+            mpt_efficiency_pct=float(body.get('mpt_efficiency_pct', 99.65)),
+            mpt_impedance_pct=float(body.get('mpt_impedance_pct', 14.5)),
+            mpt_voltage_hv_kv=float(body.get('mpt_voltage_hv_kv', 154.0)),
+            # Aux
+            aux_power_mw=bat_result.aux_power_peak_mw,
+            aux_tr_efficiency_pct=float(body.get('aux_tr_efficiency_pct', 98.5)),
+            # Mode: top_down from POI requirements
+            direction='discharge',
+            buffer_pct=float(body.get('rp_buffer_pct', 0.0)),
+            calculation_mode='top_down',
+            required_p_at_poi_mw=required_power_poi,
+            required_q_at_poi_mvar=required_power_poi * float(body.get('power_factor_q_ratio', 0.0)),
         )
-        rte_result = _asdict(calculate_rte(rte_inp))
+        pf_result = calculate_power_flow(pf_inp)
+        power_flow_result = dataclasses.asdict(pf_result)
+        # Convert stages list of dataclass instances
+        power_flow_result['stages'] = [dataclasses.asdict(s) for s in pf_result.stages]
+
+    # --- RTE (v2: 4 reference points + yearly table) ---
+    rte_result = None
+    if _HAS_RTE and _HAS_POWER_FLOW and power_flow_result is not None:
+        # Build dc_rte_by_year: accept array from body, or default linear degradation
+        dc_rte_array = body.get('dc_rte_by_year', None)
+        if not dc_rte_array:
+            # Default: start at 0.94, degrade 0.002/year for 20 years
+            dc_rte_start = float(body.get('battery_dc_rte', 0.94))
+            dc_rte_decay = float(body.get('dc_rte_annual_decay', 0.002))
+            project_years = int(body.get('project_lifetime_years', 20))
+            dc_rte_array = [
+                max(dc_rte_start - dc_rte_decay * y, 0.5)
+                for y in range(project_years + 1)
+            ]
+
+        rte_inp = RTEInput(
+            chain_eff_to_pcs=pf_result.chain_eff_to_poi,  # approximate: PCS ~ POI chain for now
+            chain_eff_to_mv=pf_result.chain_eff_to_mv,
+            chain_eff_to_poi=pf_result.chain_eff_to_poi,
+            dc_rte_by_year=[float(x) for x in dc_rte_array],
+            t_discharge_hr=float(body.get('duration_hours', 4)),
+            t_rest_hr=float(body.get('rte_rest_hours', 0.25)),
+            aux_power_at_pcs_mw=0.0,  # TODO: derive from power flow
+            aux_power_at_mv_mw=pf_result.aux_power_at_mv_mw,
+            aux_power_at_poi_mw=pf_result.aux_power_at_mv_mw,  # approximate
+            p_rated_at_poi_mw=required_power_poi,
+        )
+        rte_calc = calculate_rte(rte_inp)
+        rte_result = {
+            'system_rte': rte_calc.system_rte,
+            'system_rte_with_aux': rte_calc.system_rte_with_aux,
+            't_discharge_hr': rte_calc.t_discharge_hr,
+            't_charge_hr_year0': rte_calc.t_charge_hr_year0,
+            't_rest_hr': rte_calc.t_rest_hr,
+            't_cycle_hr_year0': rte_calc.t_cycle_hr_year0,
+            'rte_table': [dataclasses.asdict(row) for row in rte_calc.rte_table],
+        }
+    elif _HAS_RTE:
+        # Fallback: old-style RTE if power_flow not available
+        # Can't use old RTEInput since it was rewritten -- skip gracefully
+        rte_result = None
 
     # --- Build response ---
     ret_by_year = {
@@ -466,6 +551,7 @@ def _run_calculation(body: dict) -> dict:
             } if ret_result.wave_details else None,
         },
         'reactive_power': reactive_result,
+        'power_flow': power_flow_result,
         'rte': rte_result,
         'convergence': {
             'converged': convergence_result.converged,
@@ -696,6 +782,56 @@ def api_reactive_power():
         return jsonify({'error': f'Internal error: {exc}'}), 500
 
 
+@bp.route('/api/power-flow', methods=['POST'])
+def api_power_flow():
+    """Run standalone power flow calculation."""
+    if not _HAS_POWER_FLOW:
+        return jsonify({'error': 'power_flow module not available'}), 503
+
+    body = request.get_json(force=True, silent=True)
+    if body is None:
+        return jsonify({'error': 'Invalid JSON body'}), 400
+
+    try:
+        inp = PowerFlowInput(
+            pcs_active_power_mw=float(body.get('pcs_active_power_mw', 0)),
+            pcs_reactive_power_mvar=float(body.get('pcs_reactive_power_mvar', 0)),
+            pcs_voltage_kv=float(body.get('pcs_voltage_kv', 0.69)),
+            num_pcs=int(body['num_pcs']),
+            pcs_unit_kva=float(body['pcs_unit_kva']),
+            lv_r_ohm_per_km=float(body.get('lv_r_ohm_per_km', 0.012)),
+            lv_x_ohm_per_km=float(body.get('lv_x_ohm_per_km', 0.018)),
+            lv_length_km=float(body.get('lv_length_km', 0.005)),
+            mvt_capacity_mva=float(body.get('mvt_capacity_mva', 100.0)),
+            mvt_efficiency_pct=float(body.get('mvt_efficiency_pct', 98.9)),
+            mvt_impedance_pct=float(body.get('mvt_impedance_pct', 6.0)),
+            num_mvt=int(body.get('num_mvt', 1)),
+            mv_r_ohm_per_km=float(body.get('mv_r_ohm_per_km', 0.115)),
+            mv_x_ohm_per_km=float(body.get('mv_x_ohm_per_km', 0.125)),
+            mv_length_km=float(body.get('mv_length_km', 2.0)),
+            mv_voltage_kv=float(body.get('mv_voltage_kv', 34.5)),
+            mpt_capacity_mva=float(body.get('mpt_capacity_mva', 300.0)),
+            mpt_efficiency_pct=float(body.get('mpt_efficiency_pct', 99.65)),
+            mpt_impedance_pct=float(body.get('mpt_impedance_pct', 14.5)),
+            mpt_voltage_hv_kv=float(body.get('mpt_voltage_hv_kv', 154.0)),
+            aux_power_mw=float(body.get('aux_power_mw', 0.0)),
+            aux_tr_efficiency_pct=float(body.get('aux_tr_efficiency_pct', 98.5)),
+            direction=str(body.get('direction', 'discharge')),
+            buffer_pct=float(body.get('buffer_pct', 0.0)),
+            calculation_mode=str(body.get('calculation_mode', 'bottom_up')),
+            required_p_at_poi_mw=float(body.get('required_p_at_poi_mw', 0.0)),
+            required_q_at_poi_mvar=float(body.get('required_q_at_poi_mvar', 0.0)),
+        )
+        result = calculate_power_flow(inp)
+        result_dict = dataclasses.asdict(result)
+        result_dict['stages'] = [dataclasses.asdict(s) for s in result.stages]
+        return jsonify(result_dict), 200
+    except (KeyError, ValueError, TypeError) as exc:
+        return jsonify({'error': str(exc)}), 400
+    except Exception as exc:
+        return jsonify({'error': f'Internal error: {exc}'}), 500
+
+
 @bp.route('/api/definitions', methods=['GET'])
 def api_definitions():
     """Return field definitions for tooltips."""
@@ -712,7 +848,7 @@ def api_definitions():
 
 @bp.route('/api/rte', methods=['POST'])
 def api_rte():
-    """Calculate RTE only."""
+    """Calculate RTE. Supports both new (v2) and legacy input formats."""
     if not _HAS_RTE:
         return jsonify({'error': 'rte module not available'}), 503
 
@@ -721,13 +857,45 @@ def api_rte():
         return jsonify({'error': 'Invalid JSON body'}), 400
 
     try:
-        inp = RTEInput(
-            total_bat_poi_eff=float(body['total_bat_poi_eff']),
-            total_battery_loss_factor=float(body['total_battery_loss_factor']),
-            battery_dc_rte=float(body.get('battery_dc_rte', 0.95)),
-        )
-        result = calculate_rte(inp)
-        return jsonify(_asdict(result)), 200
+        # Check if new-style input (has chain_eff fields)
+        if 'chain_eff_to_poi' in body:
+            dc_rte_array = body.get('dc_rte_by_year', [float(body.get('battery_dc_rte', 0.94))])
+            if not isinstance(dc_rte_array, list):
+                dc_rte_array = [float(dc_rte_array)]
+
+            inp = RTEInput(
+                chain_eff_to_pcs=float(body.get('chain_eff_to_pcs', 0.99)),
+                chain_eff_to_mv=float(body.get('chain_eff_to_mv', 0.96)),
+                chain_eff_to_poi=float(body['chain_eff_to_poi']),
+                dc_rte_by_year=[float(x) for x in dc_rte_array],
+                t_discharge_hr=float(body.get('t_discharge_hr', 4.0)),
+                t_rest_hr=float(body.get('t_rest_hr', 0.25)),
+                aux_power_at_pcs_mw=float(body.get('aux_power_at_pcs_mw', 0.0)),
+                aux_power_at_mv_mw=float(body.get('aux_power_at_mv_mw', 0.0)),
+                aux_power_at_poi_mw=float(body.get('aux_power_at_poi_mw', 0.0)),
+                p_rated_at_poi_mw=float(body.get('p_rated_at_poi_mw', 100.0)),
+            )
+            result = calculate_rte(inp)
+            return jsonify({
+                'system_rte': result.system_rte,
+                'system_rte_with_aux': result.system_rte_with_aux,
+                't_discharge_hr': result.t_discharge_hr,
+                't_charge_hr_year0': result.t_charge_hr_year0,
+                't_rest_hr': result.t_rest_hr,
+                't_cycle_hr_year0': result.t_cycle_hr_year0,
+                'rte_table': [dataclasses.asdict(row) for row in result.rte_table],
+            }), 200
+        else:
+            # Legacy format: compute simple RTE from chain_eff
+            eff = float(body.get('total_bat_poi_eff', 0.96))
+            dc_rte = float(body.get('battery_dc_rte', 0.95))
+            rte = eff ** 2 * dc_rte
+            return jsonify({
+                'charge_efficiency': eff,
+                'discharge_efficiency': eff,
+                'system_rte': rte,
+                'battery_dc_rte': dc_rte,
+            }), 200
     except (KeyError, ValueError, TypeError) as exc:
         return jsonify({'error': str(exc)}), 400
     except Exception as exc:
