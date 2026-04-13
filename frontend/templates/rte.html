@@ -4,8 +4,8 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">Round-Trip Efficiency Calculator</div>
-    <div class="page-subtitle">Calculate system RTE at POI or MV reference point. Load values from Shared DB or enter manually.</div>
+    <div class="page-title">Round-Trip Efficiency Calculator (v2)</div>
+    <div class="page-subtitle">RTE at 4 reference points with yearly degradation. Load from main page or enter manually.</div>
 </div>
 
 <div class="eff-two-col">
@@ -13,12 +13,16 @@
     <div class="eff-two-col__left">
         <div class="eff-two-col__header">
             <span class="eff-two-col__badge eff-two-col__badge--main">INPUT</span>
-            Efficiency Parameters
+            Parameters
         </div>
 
-        <!-- Load from DB -->
+        <!-- Load sources -->
         <div class="form-section form-section--compact" style="margin-bottom:16px;">
-            <div class="form-section-title">Load from Shared DB</div>
+            <div class="form-section-title">Data Source</div>
+            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                <button type="button" class="btn btn--outline btn--sm" id="btnLoadSession" onclick="loadFromSession()">Load from Main Page</button>
+                <button type="button" class="btn btn--outline btn--sm" onclick="loadRteFromDesign()">Load from Shared DB</button>
+            </div>
             <div style="display:flex;gap:8px;align-items:end;">
                 <div class="form-group form-group--compact" style="flex:1;">
                     <label for="rteDesignSelect">Saved Design</label>
@@ -26,80 +30,93 @@
                         <option value="">— Select a design —</option>
                     </select>
                 </div>
-                <button type="button" class="btn btn--outline btn--sm" onclick="loadRteFromDesign()" style="margin-bottom:4px;">Load</button>
             </div>
+            <div id="loadStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
         </div>
 
-        <!-- Reference Point -->
-        <div class="form-section form-section--compact" style="margin-bottom:16px;">
-            <div class="form-section-title">Reference Point</div>
-            <div style="display:flex;gap:12px;">
-                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;">
-                    <input type="radio" name="rte_ref" value="poi" checked onchange="calcRte()"> @ POI
-                </label>
-                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;">
-                    <input type="radio" name="rte_ref" value="mv" onchange="calcRte()"> @ MV
-                </label>
-            </div>
-            <span class="field-hint">POI includes HV transformer. MV excludes HV side (for MV-level contracts).</span>
-        </div>
-
-        <!-- Efficiency Inputs -->
+        <!-- System Efficiency Chain -->
         <div class="form-section form-section--compact">
             <div class="form-section-title">System Efficiency Chain</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div class="form-group form-group--compact">
                     <label for="rteHvAc">HV AC Cabling</label>
-                    <input type="number" id="rteHvAc" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rteHvAc" value="0.999" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rteHvTr">HV Transformer</label>
-                    <input type="number" id="rteHvTr" value="0.995" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rteHvTr" value="0.995" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rteMvAc">MV AC Cabling</label>
-                    <input type="number" id="rteMvAc" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rteMvAc" value="0.999" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rteMvTr">MV Transformer</label>
-                    <input type="number" id="rteMvTr" value="0.993" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rteMvTr" value="0.993" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rteLvCab">LV Cabling</label>
-                    <input type="number" id="rteLvCab" value="0.996" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rteLvCab" value="0.996" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rtePcs">PCS Efficiency</label>
-                    <input type="number" id="rtePcs" value="0.985" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <input type="number" id="rtePcs" value="0.985" min="0.9" max="1" step="0.0001" />
                 </div>
                 <div class="form-group form-group--compact">
                     <label for="rteDcCab">DC Cabling</label>
-                    <input type="number" id="rteDcCab" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
-                </div>
-                <div class="form-group form-group--compact">
-                    <label for="rteBatDcRte">Battery DC RTE</label>
-                    <input type="number" id="rteBatDcRte" value="0.95" min="0.5" max="1" step="0.001" onchange="calcRte()" />
+                    <input type="number" id="rteDcCab" value="0.999" min="0.9" max="1" step="0.0001" />
                 </div>
             </div>
         </div>
 
-        <!-- Battery Loss -->
+        <!-- RTE Parameters (NEW) -->
         <div class="form-section form-section--compact" style="margin-top:12px;">
-            <div class="form-section-title">Battery Loss Factor</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div class="form-section-title">RTE Parameters</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div class="form-group form-group--compact">
-                    <label for="rteAppliedDod">Applied DoD</label>
-                    <input type="number" id="rteAppliedDod" value="0.99" min="0.5" max="1" step="0.001" onchange="calcRte()" />
+                    <label for="rteDcRteStart">DC RTE Year 0 (%)</label>
+                    <input type="number" id="rteDcRteStart" value="94.0" min="50" max="100" step="0.1" />
                 </div>
                 <div class="form-group form-group--compact">
-                    <label for="rteLossFactor">Loss Factors</label>
-                    <input type="number" id="rteLossFactor" value="0.98802" min="0.9" max="1" step="0.00001" onchange="calcRte()" />
+                    <label for="rteDcRteDecay">Annual Decay (%/yr)</label>
+                    <input type="number" id="rteDcRteDecay" value="0.2" min="0" max="2" step="0.01" />
                 </div>
                 <div class="form-group form-group--compact">
-                    <label for="rteMbms">MBMS</label>
-                    <input type="number" id="rteMbms" value="0.999" min="0.9" max="1" step="0.0001" onchange="calcRte()" />
+                    <label for="rteDischargeHr">Discharge Duration (hr)</label>
+                    <input type="number" id="rteDischargeHr" value="4.0" min="0.5" max="12" step="0.5" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteRestHr">Rest Time (hr)</label>
+                    <input type="number" id="rteRestHr" value="0.25" min="0" max="2" step="0.05" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteProjectYears">Project Lifetime (yr)</label>
+                    <input type="number" id="rteProjectYears" value="20" min="1" max="30" step="1" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteRatedPower">Rated Power at POI (MW)</label>
+                    <input type="number" id="rteRatedPower" value="100" min="1" max="1000" step="1" />
                 </div>
             </div>
+        </div>
+
+        <!-- Aux Power (NEW) -->
+        <div class="form-section form-section--compact" style="margin-top:12px;">
+            <div class="form-section-title">Aux Power</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group form-group--compact">
+                    <label for="rteAuxAtMv">Aux at MV Bus (MW)</label>
+                    <input type="number" id="rteAuxAtMv" value="0" min="0" max="20" step="0.1" />
+                </div>
+                <div class="form-group form-group--compact">
+                    <label for="rteAuxAtPoi">Aux at POI (MW)</label>
+                    <input type="number" id="rteAuxAtPoi" value="0" min="0" max="20" step="0.1" />
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn--primary" onclick="calcRte()">Calculate RTE</button>
         </div>
     </div>
 
@@ -110,41 +127,93 @@
     <div class="eff-two-col__right">
         <div class="eff-two-col__header">
             <span class="eff-two-col__badge eff-two-col__badge--aux">RESULT</span>
-            RTE Calculation <span id="rteRefLabel" style="font-size:12px;color:#888;">@ POI</span>
+            RTE at 4 Reference Points
         </div>
 
-        <!-- Big RTE Display -->
-        <div style="text-align:center;padding:24px 0;margin-bottom:16px;">
-            <div style="font-size:56px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
-                <span id="rteSystemValue">—</span>%
+        <!-- Big RTE Display (Year 0 @ POI) -->
+        <div style="text-align:center;padding:18px 0;margin-bottom:12px;">
+            <div style="font-size:48px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
+                <span id="rteSystemValue">&mdash;</span>%
             </div>
-            <div style="font-size:14px;color:var(--color-text-muted);margin-top:4px;">System Round-Trip Efficiency</div>
+            <div style="font-size:13px;color:var(--color-text-muted);">System RTE @ POI (Year 0)</div>
         </div>
 
-        <!-- Breakdown Table -->
-        <table class="eng-table" style="width:100%;">
+        <!-- 4 Reference Points Summary (Year 0) -->
+        <table class="eng-table" style="width:100%;margin-bottom:16px;">
+            <thead>
+                <tr>
+                    <th style="padding:6px 8px;text-align:left;font-size:12px;">Reference Point</th>
+                    <th style="padding:6px 8px;text-align:right;font-size:12px;">RTE</th>
+                    <th style="padding:6px 8px;text-align:right;font-size:12px;" class="rte-aux-col">RTE (w/ aux)</th>
+                </tr>
+            </thead>
             <tbody>
-                <tr><td class="eng-table__label">Charge Efficiency (Grid → Battery)</td>
-                    <td class="eng-table__value" id="rteChargeEff">—</td><td class="eng-table__unit">%</td></tr>
-                <tr><td class="eng-table__label">Discharge Efficiency (Battery → Grid)</td>
-                    <td class="eng-table__value" id="rteDischargeEff">—</td><td class="eng-table__unit">%</td></tr>
-                <tr><td class="eng-table__label">Battery DC RTE</td>
-                    <td class="eng-table__value" id="rteBatRteDisplay">—</td><td class="eng-table__unit">%</td></tr>
-                <tr><td class="eng-table__label">Battery Loss Factor</td>
-                    <td class="eng-table__value" id="rteLossDisplay">—</td><td class="eng-table__unit">%</td></tr>
-                <tr style="border-top:2px solid #333;">
-                    <td class="eng-table__label" style="font-weight:700;">System RTE</td>
-                    <td class="eng-table__value" id="rteSystemDisplay" style="font-weight:700;">—</td>
-                    <td class="eng-table__unit">%</td></tr>
+                <tr>
+                    <td style="padding:6px 8px;">@ DC Terminal</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtDc">&mdash;</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtDcAux" class="rte-aux-col">&mdash;</td>
+                </tr>
+                <tr>
+                    <td style="padding:6px 8px;">@ PCS AC</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtPcs">&mdash;</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtPcsAux" class="rte-aux-col">&mdash;</td>
+                </tr>
+                <tr>
+                    <td style="padding:6px 8px;">@ MV Bus</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtMv">&mdash;</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtMvAux" class="rte-aux-col">&mdash;</td>
+                </tr>
+                <tr style="font-weight:700;">
+                    <td style="padding:6px 8px;">@ POI (Grid)</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtPoi">&mdash;</td>
+                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);" id="rteAtPoiAux" class="rte-aux-col">&mdash;</td>
+                </tr>
             </tbody>
         </table>
 
-        <!-- RTE Formula -->
-        <div style="margin-top:16px;background:#f8f9fa;border-radius:8px;padding:12px 16px;font-size:12px;font-family:'SF Mono','Consolas',monospace;line-height:1.8;">
-            <strong>Formula (<span id="rteFormulaRef">POI</span>):</strong><br>
-            Charge Eff = <span id="rteFormulaChain">—</span><br>
-            Discharge Eff = Charge Eff (same path)<br>
-            System RTE = Charge × Discharge × Battery DC RTE × Loss Factor
+        <!-- Timing Info -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px;font-size:11px;">
+            <div style="text-align:center;background:#f8f9fa;padding:6px;border-radius:6px;">
+                <div style="color:#888;">T_charge</div>
+                <div id="rteTCharge" style="font-weight:700;">&mdash;</div>
+            </div>
+            <div style="text-align:center;background:#f8f9fa;padding:6px;border-radius:6px;">
+                <div style="color:#888;">T_rest</div>
+                <div id="rteTRest" style="font-weight:700;">&mdash;</div>
+            </div>
+            <div style="text-align:center;background:#f8f9fa;padding:6px;border-radius:6px;">
+                <div style="color:#888;">T_discharge</div>
+                <div id="rteTDisch" style="font-weight:700;">&mdash;</div>
+            </div>
+            <div style="text-align:center;background:#f8f9fa;padding:6px;border-radius:6px;">
+                <div style="color:#888;">T_cycle</div>
+                <div id="rteTCycle" style="font-weight:700;">&mdash;</div>
+            </div>
+        </div>
+
+        <!-- Show/hide aux toggle -->
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:8px;cursor:pointer;">
+            <input type="checkbox" id="rteShowAux" checked onchange="toggleAuxColumn()"> Show aux impact
+        </label>
+
+        <!-- Yearly Degradation Table -->
+        <div style="max-height:400px;overflow-y:auto;">
+            <table class="eng-table" style="width:100%;font-size:11px;" id="rteYearlyTable">
+                <thead>
+                    <tr>
+                        <th style="padding:4px 6px;text-align:center;">Year</th>
+                        <th style="padding:4px 6px;text-align:right;">DC RTE</th>
+                        <th style="padding:4px 6px;text-align:right;">@ DC</th>
+                        <th style="padding:4px 6px;text-align:right;">@ PCS</th>
+                        <th style="padding:4px 6px;text-align:right;">@ MV</th>
+                        <th style="padding:4px 6px;text-align:right;">@ POI</th>
+                        <th style="padding:4px 6px;text-align:right;" class="rte-aux-col">@ POI (aux)</th>
+                    </tr>
+                </thead>
+                <tbody id="rteYearlyBody">
+                    <!-- Filled by JS -->
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -154,7 +223,9 @@
 {% block extra_js %}
 <script>
 (function () {
-    // Load designs list (public endpoint, no login required)
+    /* ----------------------------------------------------------------
+       1. Load Shared DB designs list
+       ---------------------------------------------------------------- */
     fetch('/api/rte/designs')
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (designs) {
@@ -167,7 +238,7 @@
                 sel.appendChild(opt);
                 return;
             }
-            (designs || []).forEach(function (d) {
+            designs.forEach(function (d) {
                 var opt = document.createElement('option');
                 opt.value = d.id;
                 opt.textContent = d.project_name + ' (' + (d.created_at || '').substring(0, 10) + ')';
@@ -185,6 +256,62 @@
             }
         });
 
+    /* ----------------------------------------------------------------
+       2. Load from sessionStorage (main page stores rte_params)
+       ---------------------------------------------------------------- */
+    window.loadFromSession = function () {
+        var raw = sessionStorage.getItem('rte_params');
+        if (!raw) {
+            document.getElementById('loadStatus').textContent = 'No data from main page. Run a calculation first.';
+            return;
+        }
+        var params;
+        try { params = JSON.parse(raw); } catch (e) {
+            document.getElementById('loadStatus').textContent = 'Failed to parse session data.';
+            return;
+        }
+
+        // params expected: { efficiency: {...}, power_flow: {...}, rte: {...}, summary: {...} }
+        var eff = params.efficiency || {};
+        var pf = params.power_flow || {};
+        var sum = params.summary || {};
+        var rte = params.rte || {};
+
+        // Fill efficiency chain inputs
+        var effMap = {
+            rteHvAc: eff.hv_ac_cabling,
+            rteHvTr: eff.hv_transformer,
+            rteMvAc: eff.mv_ac_cabling,
+            rteMvTr: eff.mv_transformer,
+            rteLvCab: eff.lv_cabling,
+            rtePcs: eff.pcs_efficiency,
+            rteDcCab: eff.dc_cabling
+        };
+        Object.keys(effMap).forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && effMap[id] != null) el.value = effMap[id];
+        });
+
+        // Fill RTE parameters
+        if (rte.dc_rte_start != null) document.getElementById('rteDcRteStart').value = (rte.dc_rte_start * 100).toFixed(1);
+        if (rte.dc_rte_decay != null) document.getElementById('rteDcRteDecay').value = (rte.dc_rte_decay * 100).toFixed(2);
+
+        // Fill aux power from power_flow
+        if (pf.aux_power_at_mv_mw != null) document.getElementById('rteAuxAtMv').value = parseFloat(pf.aux_power_at_mv_mw).toFixed(2);
+        if (pf.aux_power_at_poi_mw != null) document.getElementById('rteAuxAtPoi').value = parseFloat(pf.aux_power_at_poi_mw).toFixed(2);
+
+        // Fill from summary
+        if (sum.duration_hours != null) document.getElementById('rteDischargeHr').value = sum.duration_hours;
+        if (sum.required_power_mw != null) document.getElementById('rteRatedPower').value = sum.required_power_mw;
+        if (sum.project_years != null) document.getElementById('rteProjectYears').value = sum.project_years;
+
+        document.getElementById('loadStatus').textContent = 'Loaded from main page \u2713';
+        calcRte();
+    };
+
+    /* ----------------------------------------------------------------
+       3. Load from Shared DB design
+       ---------------------------------------------------------------- */
     window.loadRteFromDesign = function () {
         var sel = document.getElementById('rteDesignSelect');
         var opt = sel.options[sel.selectedIndex];
@@ -194,73 +321,169 @@
         }
         var d;
         try { d = JSON.parse(opt.dataset.design); } catch (e) { return; }
-        var inp = (d.input_data || {});
+        var inp = d.input_data || {};
         // Support both nested (inp.efficiency.xxx) and flat (inp.xxx) structures
         var eff = inp.efficiency || {};
-        function v(key) { return eff[key] || inp[key]; }
+        function v(key) { return eff[key] !== undefined ? eff[key] : inp[key]; }
+
         // Fill efficiency inputs
         var map = {
-            rteHvAc: v('hv_ac_cabling'), rteHvTr: v('hv_transformer'),
-            rteMvAc: v('mv_ac_cabling'), rteMvTr: v('mv_transformer'),
-            rteLvCab: v('lv_cabling'), rtePcs: v('pcs_efficiency'),
-            rteDcCab: v('dc_cabling'),
+            rteHvAc: v('hv_ac_cabling'),
+            rteHvTr: v('hv_transformer'),
+            rteMvAc: v('mv_ac_cabling'),
+            rteMvTr: v('mv_transformer'),
+            rteLvCab: v('lv_cabling'),
+            rtePcs: v('pcs_efficiency'),
+            rteDcCab: v('dc_cabling')
         };
-        var bat = inp.battery_loss || {};
-        map.rteAppliedDod = bat.applied_dod || inp.applied_dod;
-        map.rteLossFactor = bat.loss_factors || inp.loss_factors;
-        map.rteMbms = bat.mbms_consumption || inp.mbms_consumption;
         Object.keys(map).forEach(function (id) {
             var el = document.getElementById(id);
             if (el && map[id] != null) el.value = map[id];
         });
+
+        // Fill RTE parameters if available
+        var rteParams = inp.rte || {};
+        if (rteParams.dc_rte_start != null) document.getElementById('rteDcRteStart').value = (rteParams.dc_rte_start * 100).toFixed(1);
+        if (rteParams.dc_rte_decay != null) document.getElementById('rteDcRteDecay').value = (rteParams.dc_rte_decay * 100).toFixed(2);
+
+        // Fill aux if available
+        var pf = inp.power_flow || {};
+        if (pf.aux_power_at_mv_mw != null) document.getElementById('rteAuxAtMv').value = parseFloat(pf.aux_power_at_mv_mw).toFixed(2);
+        if (pf.aux_power_at_poi_mw != null) document.getElementById('rteAuxAtPoi').value = parseFloat(pf.aux_power_at_poi_mw).toFixed(2);
+
+        // Fill summary fields
+        var sum = inp.summary || {};
+        if (sum.duration_hours != null) document.getElementById('rteDischargeHr').value = sum.duration_hours;
+        if (sum.required_power_mw != null) document.getElementById('rteRatedPower').value = sum.required_power_mw;
+
+        document.getElementById('loadStatus').textContent = 'Loaded from Shared DB: ' + (d.project_name || 'design') + ' \u2713';
         calcRte();
     };
 
+    /* ----------------------------------------------------------------
+       4. Main calculation — calls backend /api/rte
+       ---------------------------------------------------------------- */
     window.calcRte = function () {
-        var ref = document.querySelector('input[name="rte_ref"]:checked');
-        var atPoi = !ref || ref.value === 'poi';
-
-        var hvAc = parseFloat(document.getElementById('rteHvAc').value) || 0.999;
-        var hvTr = parseFloat(document.getElementById('rteHvTr').value) || 0.995;
-        var mvAc = parseFloat(document.getElementById('rteMvAc').value) || 0.999;
-        var mvTr = parseFloat(document.getElementById('rteMvTr').value) || 0.993;
+        // Collect efficiency chain values
+        var hvAc  = parseFloat(document.getElementById('rteHvAc').value)  || 0.999;
+        var hvTr  = parseFloat(document.getElementById('rteHvTr').value)  || 0.995;
+        var mvAc  = parseFloat(document.getElementById('rteMvAc').value)  || 0.999;
+        var mvTr  = parseFloat(document.getElementById('rteMvTr').value)  || 0.993;
         var lvCab = parseFloat(document.getElementById('rteLvCab').value) || 0.996;
-        var pcs = parseFloat(document.getElementById('rtePcs').value) || 0.985;
+        var pcs   = parseFloat(document.getElementById('rtePcs').value)   || 0.985;
         var dcCab = parseFloat(document.getElementById('rteDcCab').value) || 0.999;
-        var batRte = parseFloat(document.getElementById('rteBatDcRte').value) || 0.95;
-        var dod = parseFloat(document.getElementById('rteAppliedDod').value) || 0.99;
-        var lf = parseFloat(document.getElementById('rteLossFactor').value) || 0.988;
-        var mbms = parseFloat(document.getElementById('rteMbms').value) || 0.999;
 
-        var lossFactor = dod * lf * mbms;
-        var chainEff;
-        var chainLabel;
-        if (atPoi) {
-            chainEff = hvAc * hvTr * mvAc * mvTr * lvCab * pcs * dcCab;
-            chainLabel = 'HV_AC × HV_TR × MV_AC × MV_TR × LV × PCS × DC';
-        } else {
-            // MV reference: exclude HV side
-            chainEff = mvAc * mvTr * lvCab * pcs * dcCab;
-            chainLabel = 'MV_AC × MV_TR × LV × PCS × DC (no HV)';
+        // Compute chain efficiencies for each reference point
+        var chain_to_pcs = dcCab * pcs;
+        var chain_to_mv  = dcCab * pcs * lvCab * mvTr * mvAc;
+        var chain_to_poi = chain_to_mv * hvTr * hvAc;
+
+        // Build DC RTE array from start + annual decay
+        var dcRteStart = parseFloat(document.getElementById('rteDcRteStart').value) / 100 || 0.94;
+        var dcRteDecay = parseFloat(document.getElementById('rteDcRteDecay').value) / 100 || 0.002;
+        var years = parseInt(document.getElementById('rteProjectYears').value) || 20;
+        var dcRteArray = [];
+        for (var y = 0; y <= years; y++) {
+            dcRteArray.push(Math.max(dcRteStart - dcRteDecay * y, 0.5));
         }
 
-        var chargeEff = chainEff;
-        var dischargeEff = chainEff;
-        var systemRte = chargeEff * dischargeEff * batRte * lossFactor;
+        var payload = {
+            chain_eff_to_pcs: chain_to_pcs,
+            chain_eff_to_mv:  chain_to_mv,
+            chain_eff_to_poi: chain_to_poi,
+            dc_rte_by_year:   dcRteArray,
+            t_discharge_hr:   parseFloat(document.getElementById('rteDischargeHr').value) || 4.0,
+            t_rest_hr:        parseFloat(document.getElementById('rteRestHr').value) || 0.25,
+            aux_power_at_pcs_mw: 0,
+            aux_power_at_mv_mw:  parseFloat(document.getElementById('rteAuxAtMv').value)  || 0,
+            aux_power_at_poi_mw: parseFloat(document.getElementById('rteAuxAtPoi').value) || 0,
+            p_rated_at_poi_mw:   parseFloat(document.getElementById('rteRatedPower').value) || 100
+        };
 
-        document.getElementById('rteSystemValue').textContent = (systemRte * 100).toFixed(1);
-        document.getElementById('rteChargeEff').textContent = (chargeEff * 100).toFixed(2);
-        document.getElementById('rteDischargeEff').textContent = (dischargeEff * 100).toFixed(2);
-        document.getElementById('rteBatRteDisplay').textContent = (batRte * 100).toFixed(1);
-        document.getElementById('rteLossDisplay').textContent = (lossFactor * 100).toFixed(2);
-        document.getElementById('rteSystemDisplay').textContent = (systemRte * 100).toFixed(2);
-        document.getElementById('rteRefLabel').textContent = atPoi ? '@ POI' : '@ MV';
-        document.getElementById('rteFormulaRef').textContent = atPoi ? 'POI' : 'MV';
-        document.getElementById('rteFormulaChain').textContent = chainLabel + ' = ' + (chargeEff * 100).toFixed(2) + '%';
+        fetch('/api/rte', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+            displayRteResults(data);
+        })
+        .catch(function (err) {
+            alert('RTE calculation failed: ' + err);
+        });
     };
 
-    // Auto-calculate on load
-    calcRte();
+    /* ----------------------------------------------------------------
+       5. Display results from API response
+       ---------------------------------------------------------------- */
+    function displayRteResults(data) {
+        var table = data.rte_table || [];
+        if (table.length === 0) return;
+        var yr0 = table[0];
+
+        // Big display — Year 0 @ POI
+        document.getElementById('rteSystemValue').textContent = (yr0.rte_at_poi * 100).toFixed(1);
+
+        // 4 reference points (Year 0)
+        document.getElementById('rteAtDc').textContent      = (yr0.rte_at_dc  * 100).toFixed(2) + '%';
+        document.getElementById('rteAtPcs').textContent     = (yr0.rte_at_pcs * 100).toFixed(2) + '%';
+        document.getElementById('rteAtMv').textContent      = (yr0.rte_at_mv  * 100).toFixed(2) + '%';
+        document.getElementById('rteAtPoi').textContent     = (yr0.rte_at_poi * 100).toFixed(2) + '%';
+        document.getElementById('rteAtDcAux').textContent   = (yr0.rte_at_dc_with_aux  * 100).toFixed(2) + '%';
+        document.getElementById('rteAtPcsAux').textContent  = (yr0.rte_at_pcs_with_aux * 100).toFixed(2) + '%';
+        document.getElementById('rteAtMvAux').textContent   = (yr0.rte_at_mv_with_aux  * 100).toFixed(2) + '%';
+        document.getElementById('rteAtPoiAux').textContent  = (yr0.rte_at_poi_with_aux * 100).toFixed(2) + '%';
+
+        // Timing info
+        document.getElementById('rteTCharge').textContent = (data.t_charge_hr_year0 || 0).toFixed(2) + ' hr';
+        document.getElementById('rteTRest').textContent   = (data.t_rest_hr || 0).toFixed(2) + ' hr';
+        document.getElementById('rteTDisch').textContent  = (data.t_discharge_hr || 0).toFixed(2) + ' hr';
+        document.getElementById('rteTCycle').textContent  = (data.t_cycle_hr_year0 || 0).toFixed(2) + ' hr';
+
+        // Yearly degradation table
+        var tbody = document.getElementById('rteYearlyBody');
+        tbody.innerHTML = '';
+        var showAux = document.getElementById('rteShowAux').checked;
+        table.forEach(function (row) {
+            var tr = document.createElement('tr');
+            if (row.year === 0) tr.style.fontWeight = '700';
+            tr.innerHTML =
+                '<td style="padding:4px 6px;text-align:center;">' + row.year + '</td>' +
+                '<td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">' + (row.dc_rte * 100).toFixed(2) + '%</td>' +
+                '<td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">' + (row.rte_at_dc * 100).toFixed(2) + '%</td>' +
+                '<td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">' + (row.rte_at_pcs * 100).toFixed(2) + '%</td>' +
+                '<td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">' + (row.rte_at_mv * 100).toFixed(2) + '%</td>' +
+                '<td style="padding:4px 6px;text-align:right;font-family:var(--font-mono);">' + (row.rte_at_poi * 100).toFixed(2) + '%</td>' +
+                '<td class="rte-aux-col" style="padding:4px 6px;text-align:right;font-family:var(--font-mono);' +
+                    (showAux ? '' : 'display:none;') + '">' +
+                    (row.rte_at_poi_with_aux * 100).toFixed(2) + '%</td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    /* ----------------------------------------------------------------
+       6. Toggle aux column visibility
+       ---------------------------------------------------------------- */
+    window.toggleAuxColumn = function () {
+        var show = document.getElementById('rteShowAux').checked;
+        var cols = document.querySelectorAll('.rte-aux-col');
+        for (var i = 0; i < cols.length; i++) {
+            cols[i].style.display = show ? '' : 'none';
+        }
+    };
+
+    /* ----------------------------------------------------------------
+       7. Auto-load from sessionStorage on page load
+       ---------------------------------------------------------------- */
+    var hasSession = sessionStorage.getItem('rte_params');
+    if (hasSession) {
+        loadFromSession();
+    }
 })();
 </script>
 {% endblock %}
