@@ -1,6 +1,7 @@
 """BESS Sizing Tool — Flask Blueprint with all API endpoints."""
 import dataclasses
 import json
+import math
 import os
 
 from flask import Blueprint, current_app, jsonify, render_template, request
@@ -211,7 +212,6 @@ def _run_calculation(body: dict) -> dict:
     # loss_factors can be a single float (pre-computed product) or a list
     raw_lf = bat_cfg.get('loss_factors', 0.98802)
     if isinstance(raw_lf, list):
-        import math
         loss_factors_val = math.prod(raw_lf)
     else:
         loss_factors_val = float(raw_lf)
@@ -464,7 +464,9 @@ def _run_calculation(body: dict) -> dict:
             buffer_pct=float(body.get('rp_buffer_pct', 0.0)),
             calculation_mode='top_down',
             required_p_at_poi_mw=required_power_poi,
-            required_q_at_poi_mvar=required_power_poi * float(body.get('power_factor_q_ratio', 0.0)),
+            required_q_at_poi_mvar=required_power_poi * math.tan(math.acos(
+                min(max(float(body.get('power_factor', 0.95)), 0.01), 1.0)
+            )),
         )
         pf_result = calculate_power_flow(pf_inp)
         power_flow_result = dataclasses.asdict(pf_result)
