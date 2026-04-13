@@ -302,17 +302,33 @@ def _solve_top_down(inp: PowerFlowInput) -> PowerFlowResult:
     target_p = inp.required_p_at_poi_mw
     target_q = inp.required_q_at_poi_mvar
 
-    # Initial guess: assume ~95% system efficiency
+    # Initial guess: assume ~95% system efficiency for P.
+    # For Q, the system consumes reactive power through transformer impedance
+    # (I^2*X losses), so PCS must inject more Q than the POI target.
+    # A reasonable first estimate adds ~20% of total MVA rating as Q compensation.
     initial_eff_guess = 0.95
     guess_total_p = target_p / initial_eff_guess
-    guess_total_q = target_q / initial_eff_guess if target_q != 0 else 0.0
+
+    # Estimate Q consumed by transformers for the initial Q guess.
+    # Use a rough estimate: sum of (Z% * capacity) for all transformers,
+    # scaled by approximate loading^2.
+    approx_loading = (target_p / initial_eff_guess) / max(
+        inp.mpt_capacity_mva, 1.0
+    )
+    approx_q_consumed = (
+        inp.num_mvt * (inp.mvt_impedance_pct / 100.0) * inp.mvt_capacity_mva
+        * (approx_loading ** 2)
+        + (inp.mpt_impedance_pct / 100.0) * inp.mpt_capacity_mva
+        * (approx_loading ** 2)
+    )
+    guess_total_q = target_q + approx_q_consumed
 
     # Per-PCS values
     pcs_p = guess_total_p / inp.num_pcs
     pcs_q = guess_total_q / inp.num_pcs
 
-    max_iter = 20
-    tolerance = 1e-6  # MW
+    max_iter = 50
+    tolerance = 1e-6  # MW / MVAr
 
     for iteration in range(max_iter):
         # Run bottom-up with current PCS guess
@@ -380,20 +396,26 @@ def _solve_top_down(inp: PowerFlowInput) -> PowerFlowResult:
                 required_pcs_q_per_unit_mvar=pcs_q,
             )
 
-        # Adjust PCS guess using ratio scaling (stable for this type of problem)
+        # Update strategy:
+        # P uses ratio scaling (multiplicative) — works well because P losses
+        # are a small fraction and the relationship is nearly proportional.
+        # Q uses additive correction — essential because Q_poi = Q_pcs - Q_consumed,
+        # where Q_consumed depends on loading. Ratio scaling fails when Q_pcs is
+        # near zero or when the sign of Q_poi differs from target_q.
         if result.p_at_poi > 0:
             scale_p = target_p / result.p_at_poi
         else:
             scale_p = 1.1
-        if result.q_at_poi != 0:
-            scale_q = target_q / result.q_at_poi
-        else:
-            scale_q = scale_p  # Use P scaling for Q when Q is near zero
 
-        # Damped update to prevent oscillation
+        # Damped updates
         damping = 0.7
         pcs_p = pcs_p * (1 - damping + damping * scale_p)
-        pcs_q = pcs_q * (1 - damping + damping * scale_q)
+
+        # Additive Q correction: distribute the POI Q error across all PCS units.
+        # The relationship Q_poi ≈ Q_pcs_total - Q_consumed is approximately
+        # linear in Q_pcs when P is held roughly constant, so additive correction
+        # converges reliably regardless of the target_q value (including zero).
+        pcs_q = pcs_q + damping * (error_q / inp.num_pcs)
 
     # Did not converge — return last result with warning
     return PowerFlowResult(
