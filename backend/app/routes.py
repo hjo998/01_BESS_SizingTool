@@ -434,31 +434,31 @@ def _run_calculation(body: dict) -> dict:
         pf_inp = PowerFlowInput(
             pcs_active_power_mw=0,  # ignored in top_down
             pcs_reactive_power_mvar=0,
-            pcs_voltage_kv=float(body.get('pcs_voltage_kv', 0.69)),
+            pcs_voltage_kv=float(body.get('pf_pcs_voltage_kv', 0.69)),
             num_pcs=bat_result.no_of_pcs,
             pcs_unit_kva=pcs_result.derated_power_kva,
             # LV
-            lv_r_ohm_per_km=float(body.get('lv_r_ohm_per_km', 0.012)),
-            lv_x_ohm_per_km=float(body.get('lv_x_ohm_per_km', 0.018)),
-            lv_length_km=float(body.get('lv_length_km', 0.005)),
+            lv_r_ohm_per_km=float(body.get('pf_lv_r_ohm_per_km', 0.012)),
+            lv_x_ohm_per_km=float(body.get('pf_lv_x_ohm_per_km', 0.018)),
+            lv_length_km=float(body.get('pf_lv_length_km', 0.005)),
             # MVT
-            mvt_capacity_mva=float(body.get('mvt_capacity_mva', 100.0)),
-            mvt_efficiency_pct=float(body.get('mvt_efficiency_pct', 98.9)),
-            mvt_impedance_pct=float(body.get('mvt_impedance_pct', 6.0)),
+            mvt_capacity_mva=float(body.get('pf_mvt_capacity_mva', 100.0)),
+            mvt_efficiency_pct=float(body.get('pf_mvt_efficiency_pct', 98.9)),
+            mvt_impedance_pct=float(body.get('pf_mvt_impedance_pct', 6.0)),
             num_mvt=int(bat_result.no_of_mvt) if hasattr(bat_result, 'no_of_mvt') else 1,
             # MV Line
-            mv_r_ohm_per_km=float(body.get('mv_r_ohm_per_km', 0.115)),
-            mv_x_ohm_per_km=float(body.get('mv_x_ohm_per_km', 0.125)),
-            mv_length_km=float(body.get('mv_length_km', 2.0)),
-            mv_voltage_kv=float(body.get('mv_voltage_kv', 34.5)),
+            mv_r_ohm_per_km=float(body.get('pf_mv_r_ohm_per_km', 0.115)),
+            mv_x_ohm_per_km=float(body.get('pf_mv_x_ohm_per_km', 0.125)),
+            mv_length_km=float(body.get('pf_mv_length_km', 2.0)),
+            mv_voltage_kv=float(body.get('pf_mv_voltage_kv', 34.5)),
             # MPT
-            mpt_capacity_mva=float(body.get('mpt_capacity_mva', 300.0)),
-            mpt_efficiency_pct=float(body.get('mpt_efficiency_pct', 99.65)),
-            mpt_impedance_pct=float(body.get('mpt_impedance_pct', 14.5)),
-            mpt_voltage_hv_kv=float(body.get('mpt_voltage_hv_kv', 154.0)),
+            mpt_capacity_mva=float(body.get('pf_mpt_capacity_mva', 300.0)),
+            mpt_efficiency_pct=float(body.get('pf_mpt_efficiency_pct', 99.65)),
+            mpt_impedance_pct=float(body.get('pf_mpt_impedance_pct', 14.5)),
+            mpt_voltage_hv_kv=float(body.get('pf_mpt_voltage_hv_kv', 154.0)),
             # Aux
             aux_power_mw=bat_result.aux_power_peak_mw,
-            aux_tr_efficiency_pct=float(body.get('aux_tr_efficiency_pct', 98.5)),
+            aux_tr_efficiency_pct=float(body.get('pf_aux_tr_eff_pct', 98.5)),
             # Mode: top_down from POI requirements
             direction='discharge',
             buffer_pct=float(body.get('rp_buffer_pct', 0.0)),

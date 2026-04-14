@@ -169,6 +169,24 @@
         setVal('lossFactors',        d.loss_factors);
         setVal('mbmsConsumption',    d.mbms_consumption);
 
+        // Power Flow equipment parameters
+        setVal('pfPcsVoltage',  d.pf_pcs_voltage_kv);
+        setVal('pfLvR',         d.pf_lv_r_ohm_per_km);
+        setVal('pfLvX',         d.pf_lv_x_ohm_per_km);
+        if (d.pf_lv_length_km != null) setVal('pfLvLen', d.pf_lv_length_km * 1000);  // km → m for UI
+        setVal('pfMvtCapacity', d.pf_mvt_capacity_mva);
+        setVal('pfMvtEff',      d.pf_mvt_efficiency_pct);
+        setVal('pfMvtZ',        d.pf_mvt_impedance_pct);
+        setVal('pfMvR',         d.pf_mv_r_ohm_per_km);
+        setVal('pfMvX',         d.pf_mv_x_ohm_per_km);
+        setVal('pfMvLen',       d.pf_mv_length_km);
+        setVal('pfMvVoltage',   d.pf_mv_voltage_kv);
+        setVal('pfMptCapacity', d.pf_mpt_capacity_mva);
+        setVal('pfMptEff',      d.pf_mpt_efficiency_pct);
+        setVal('pfMptZ',        d.pf_mpt_impedance_pct);
+        setVal('pfMptVoltage',  d.pf_mpt_voltage_hv_kv);
+        setVal('pfAuxTrEff',    d.pf_aux_tr_eff_pct);
+
         updateEfficiencyPreview();
 
         // Tab 3 — Product selection (cascading dropdowns)
@@ -1713,6 +1731,24 @@
 
             // Augmentation waves (chip UI)
             augmentation: [],
+
+            // Power Flow equipment parameters (optional, with defaults)
+            pf_pcs_voltage_kv:     num('pfPcsVoltage', 0.69),
+            pf_lv_r_ohm_per_km:    num('pfLvR', 0.012),
+            pf_lv_x_ohm_per_km:    num('pfLvX', 0.018),
+            pf_lv_length_km:       num('pfLvLen', 5) / 1000,  // UI shows meters, API expects km
+            pf_mvt_capacity_mva:   num('pfMvtCapacity', 100),
+            pf_mvt_efficiency_pct: num('pfMvtEff', 98.9),
+            pf_mvt_impedance_pct:  num('pfMvtZ', 6.0),
+            pf_mv_r_ohm_per_km:    num('pfMvR', 0.115),
+            pf_mv_x_ohm_per_km:    num('pfMvX', 0.125),
+            pf_mv_length_km:       num('pfMvLen', 2.0),
+            pf_mv_voltage_kv:      num('pfMvVoltage', 34.5),
+            pf_mpt_capacity_mva:   num('pfMptCapacity', 300),
+            pf_mpt_efficiency_pct: num('pfMptEff', 99.65),
+            pf_mpt_impedance_pct:  num('pfMptZ', 14.5),
+            pf_mpt_voltage_hv_kv:  num('pfMptVoltage', 154),
+            pf_aux_tr_eff_pct:     num('pfAuxTrEff', 98.5),
         };
 
         var augContainer = document.getElementById('augCompactWaves');
@@ -2127,6 +2163,25 @@
 
         // Store result for session use
         try { sessionStorage.setItem('bess_last_result', JSON.stringify(result)); } catch (e) { /* noop */ }
+
+        // Store params for RTE page
+        try {
+            var formSnap = collectFormData();
+            sessionStorage.setItem('rte_params', JSON.stringify({
+                efficiency: {
+                    hv_ac_cabling: formSnap.hv_ac_cabling || 0.999,
+                    hv_transformer: formSnap.hv_transformer || 0.995,
+                    mv_ac_cabling: formSnap.mv_ac_cabling || 0.999,
+                    mv_transformer: formSnap.mv_transformer || 0.993,
+                    lv_cabling: formSnap.lv_cabling || 0.996,
+                    pcs_efficiency: formSnap.pcs_efficiency || 0.985,
+                    dc_cabling: formSnap.dc_cabling || 0.999,
+                },
+                power_flow: result.power_flow || {},
+                rte: result.rte || {},
+                summary: result.summary || {},
+            }));
+        } catch (e) { /* noop */ }
     }
 
     function collectAugMarkers() {
