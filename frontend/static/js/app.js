@@ -2765,20 +2765,27 @@
         var byName = {};
         stages.forEach(function(s) { byName[s.name] = s; });
 
-        // Layout constants
-        var W = 460, H = 180;
-        var nodeY = 70;  // main bus y position
-        var nodeW = 48, nodeH = 32;
+        // Layout: use container width for responsive sizing
+        var container = document.getElementById('pfSldContainer');
+        var containerW = container ? container.clientWidth - 32 : 800;  // minus padding
+        var W = Math.max(containerW, 500);
+        var H = 200;
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-        // Node positions (x centers) - 7 main nodes + 1 aux branch
+        var nodeY = 70;
+        var nodeW = 56, nodeH = 36;
+        var margin = 40;
+        var spacing = (W - 2 * margin) / 6;  // 7 nodes, 6 gaps
+
+        // Node positions (x centers) - dynamically spaced
         var nodes = [
-            { key: 'PCS_OUTPUT', x: 35,  label: 'PCS',   color: '#eab308', symbol: 'inverter' },
-            { key: 'LV_LINE',    x: 100, label: 'LV',    color: '#f97316', symbol: 'cable' },
-            { key: 'MVT',        x: 155, label: 'MVT',   color: '#3b82f6', symbol: 'transformer' },
-            { key: 'MV_BUS',     x: 225, label: 'MV Bus', color: '#8b5cf6', symbol: 'bus' },
-            { key: 'MV_LINE',    x: 295, label: 'MV Ln', color: '#6366f1', symbol: 'cable' },
-            { key: 'MPT',        x: 355, label: 'MPT',   color: '#3b82f6', symbol: 'transformer' },
-            { key: 'POI',        x: 425, label: 'POI',   color: '#10b981', symbol: 'grid' }
+            { key: 'PCS_OUTPUT', x: margin,              label: 'PCS',    color: '#eab308', symbol: 'inverter' },
+            { key: 'LV_LINE',    x: margin + spacing,     label: 'LV',     color: '#f97316', symbol: 'cable' },
+            { key: 'MVT',        x: margin + spacing * 2, label: 'MVT',    color: '#3b82f6', symbol: 'transformer' },
+            { key: 'MV_BUS',     x: margin + spacing * 3, label: 'MV Bus', color: '#8b5cf6', symbol: 'bus' },
+            { key: 'MV_LINE',    x: margin + spacing * 4, label: 'MV Ln',  color: '#6366f1', symbol: 'cable' },
+            { key: 'MPT',        x: margin + spacing * 5, label: 'MPT',    color: '#3b82f6', symbol: 'transformer' },
+            { key: 'POI',        x: margin + spacing * 6, label: 'POI',    color: '#10b981', symbol: 'grid' }
         ];
 
         // Helper: create SVG element
