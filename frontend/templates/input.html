@@ -760,6 +760,116 @@
                 Reactive Power Analysis
             </div>
 
+            <!-- Power Flow Equipment Parameters (optional, with defaults) -->
+            <div class="form-section form-section--compact" style="margin-bottom:16px;">
+                <div class="form-section-title" style="cursor:pointer;" onclick="var b=this.parentElement.querySelector('.pf-params-body'); b.style.display = b.style.display === 'none' ? '' : 'none';">
+                    ⚙ Equipment Parameters <span style="font-size:10px;color:#888;font-weight:400;">(click to expand — defaults provided)</span>
+                </div>
+                <div class="pf-params-body" style="display:none;margin-top:8px;">
+
+                    <!-- LV Connection -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">LV Connection (PCS → MVT)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvR">R <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfLvR" value="0.012" min="0" max="1" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvX">X <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfLvX" value="0.018" min="0" max="1" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvLen">Length <span class="unit">m</span></label>
+                                <input type="number" id="pfLvLen" value="5" min="0" max="100" step="1" />
+                                <span class="field-hint">Busway length per powerblock</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MVT (Step-up Transformer) -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MVT (Step-up Transformer)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtCapacity">Capacity <span class="unit">MVA</span></label>
+                                <input type="number" id="pfMvtCapacity" value="100" min="1" max="500" step="1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtEff">Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfMvtEff" value="98.9" min="90" max="100" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtZ">Impedance Z <span class="unit">%</span></label>
+                                <input type="number" id="pfMvtZ" value="6.0" min="0" max="20" step="0.1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MV Collector Line -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MV Collector Line</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvR">R <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfMvR" value="0.115" min="0" max="2" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvX">X <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfMvX" value="0.125" min="0" max="2" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvLen">Length <span class="unit">km</span></label>
+                                <input type="number" id="pfMvLen" value="2.0" min="0" max="20" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvVoltage">Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfMvVoltage" value="34.5" min="1" max="100" step="0.5" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MPT (Main Power Transformer) -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MPT (Main Power Transformer)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptCapacity">Capacity <span class="unit">MVA</span></label>
+                                <input type="number" id="pfMptCapacity" value="300" min="1" max="1000" step="1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptEff">Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfMptEff" value="99.65" min="90" max="100" step="0.01" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptZ">Impedance Z <span class="unit">%</span></label>
+                                <input type="number" id="pfMptZ" value="14.5" min="0" max="30" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptVoltage">HV Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfMptVoltage" value="154" min="10" max="500" step="1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PCS Voltage + Aux TR -->
+                    <div>
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Other</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfPcsVoltage">PCS Output Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfPcsVoltage" value="0.69" min="0.1" max="10" step="0.01" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfAuxTrEff">Aux TR Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfAuxTrEff" value="98.5" min="90" max="100" step="0.1" />
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- Input: Reactive Power Buffer -->
             <div class="form-section form-section--compact" style="margin-bottom:16px;">
                 <div class="form-section-title">Reactive Power Buffer (F5)</div>
