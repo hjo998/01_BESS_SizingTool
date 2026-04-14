@@ -30,6 +30,7 @@ class BatterySizingInput:
     links_per_pcs: int              # from pcs_sizing.py (strings_per_pcs)
     aux_power_source: str = "Battery"  # "Battery" or "Grid"
     link_override: int = 0              # Manual LINK count override (0 = auto)
+    oversizing_retention_rate: float = 1.0  # Retention rate at oversizing year (0-1). Default 1.0 = no oversizing.
 
 
 @dataclass
@@ -57,6 +58,10 @@ class BatterySizingResult:
     # Auxiliary
     aux_power_peak_mw: float
     no_of_mvt: float
+
+    # Oversizing / retention
+    req_energy_bol_poi_mwh: float = 0.0       # Required energy at BOL @POI (after retention adjustment)
+    oversizing_retention_rate: float = 1.0     # Retention rate used for oversizing calculation
 
 
 def get_product_specs(product_type: str) -> dict:
@@ -142,18 +147,21 @@ def calculate_battery_sizing(inp: BatterySizingInput) -> BatterySizingResult:
     # This accounts for the full path including aux power supply
     req_power_dc = inp.required_power_poi_mw / inp.total_dc_to_aux_eff
 
-    # Required Energy @DC (basic conversion without aux)
-    req_energy_dc = inp.required_energy_poi_mwh / (
-        inp.total_bat_poi_eff * inp.total_battery_loss_factor
-    )
+    # Required Energy @DC
+    # Account for oversizing: at oversizing year, capacity has degraded by retention_rate
+    # We need enough nameplate energy so that after degradation, the system still delivers req_energy_poi
+    total_efficiency = inp.total_bat_poi_eff * inp.total_battery_loss_factor
+    req_energy_bol_poi = inp.required_energy_poi_mwh / inp.oversizing_retention_rate
+    req_energy_dc = req_energy_bol_poi / total_efficiency
 
     # --- PCS count: max of power-based and energy-based ---
     power_based_pcs = math.ceil(req_power_dc / inp.pcs_unit_power_mw)
 
     # Energy-based: how many LINKs needed for required energy @DC
-    # But installation must cover req_energy_dc with battery loss applied
-    required_links = math.ceil(req_energy_dc / nameplate_per_link)
-    energy_based_pcs = math.ceil(required_links / inp.links_per_pcs)
+    # Round up to multiple of links_per_pcs (e.g., if links_per_pcs=2, must be even)
+    raw_links = math.ceil(req_energy_dc / nameplate_per_link)
+    required_links = math.ceil(raw_links / inp.links_per_pcs) * inp.links_per_pcs
+    energy_based_pcs = required_links // inp.links_per_pcs
 
     no_of_pcs = max(power_based_pcs, energy_based_pcs)
 
@@ -201,4 +209,6 @@ def calculate_battery_sizing(inp: BatterySizingInput) -> BatterySizingResult:
         duration_bol_hr=duration_bol,
         aux_power_peak_mw=aux_power_peak_mw,
         no_of_mvt=no_of_mvt,
+        req_energy_bol_poi_mwh=req_energy_bol_poi,
+        oversizing_retention_rate=inp.oversizing_retention_rate,
     )
