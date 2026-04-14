@@ -2806,16 +2806,17 @@
             stroke: '#cbd5e1', 'stroke-width': '4'
         }));
 
-        // Draw aux branch (from MV_BUS downward)
+        // Draw aux branch (from MV_BUS downward) — with tooltip
         var auxStage = byName['AUX_BRANCH'];
         var mvBusNode = nodes[3]; // MV_BUS
         if (auxStage && auxStage.p_loss_mw !== 0) {
-            svg.appendChild(el('line', {
+            var auxG = el('g', { cursor: 'pointer' });
+            auxG.appendChild(el('line', {
                 x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 22,
                 x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 75,
                 stroke: '#f59e0b', 'stroke-width': '2.5', 'stroke-dasharray': '6,4'
             }));
-            svg.appendChild(el('rect', {
+            auxG.appendChild(el('rect', {
                 x: mvBusNode.x - 32, y: nodeY + nodeH / 2 + 75,
                 width: 64, height: 30, rx: 6,
                 fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '2'
@@ -2825,13 +2826,35 @@
                 'text-anchor': 'middle', 'font-size': '13', 'font-weight': '700', fill: '#b45309'
             });
             auxText.textContent = 'AUX';
-            svg.appendChild(auxText);
+            auxG.appendChild(auxText);
             var auxLabel = el('text', {
                 x: mvBusNode.x + 42, y: nodeY + nodeH / 2 + 92,
                 'font-size': '12', 'font-weight': '600', fill: '#dc2626'
             });
             auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + ' MW';
-            svg.appendChild(auxLabel);
+            auxG.appendChild(auxLabel);
+            // Tooltip for aux
+            auxG.addEventListener('mouseenter', function(e) {
+                if (!tooltip) return;
+                tooltip.innerHTML = '<strong style="color:#f59e0b;">AUX (Auxiliary Load)</strong><br>'
+                    + 'P consumed = ' + Math.abs(auxStage.p_loss_mw).toFixed(3) + ' MW<br>'
+                    + 'P after aux = ' + auxStage.p_mw.toFixed(3) + ' MW<br>'
+                    + 'Q = ' + auxStage.q_mvar.toFixed(3) + ' MVAr<br>'
+                    + 'S = ' + auxStage.s_mva.toFixed(3) + ' MVA<br>'
+                    + 'Branches from MV Bus (' + auxStage.voltage_kv.toFixed(1) + ' kV)';
+                tooltip.style.display = 'block';
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+            auxG.addEventListener('mouseleave', function() { if (tooltip) tooltip.style.display = 'none'; });
+            auxG.addEventListener('mousemove', function(e) {
+                if (!tooltip) return;
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+            svg.appendChild(auxG);
         }
 
         // Draw each node
@@ -2912,9 +2935,10 @@
         });
 
         // Direction arrow at bottom
-        var arrowY = H - 20;
+        // Direction arrow at TOP of diagram
+        var arrowY = 18;
         svg.appendChild(el('line', { x1: margin, y1: arrowY, x2: W - margin, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1.5', 'marker-end': 'url(#arrowhead)' }));
-        var arrowLabel = el('text', { x: W / 2, y: arrowY - 6, 'text-anchor': 'middle', 'font-size': '12', fill: '#94a3b8' });
+        var arrowLabel = el('text', { x: W / 2, y: arrowY - 5, 'text-anchor': 'middle', 'font-size': '11', fill: '#94a3b8' });
         arrowLabel.textContent = 'Power Flow \u2192 (Discharge)';
         svg.appendChild(arrowLabel);
     }
