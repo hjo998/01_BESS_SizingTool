@@ -2779,7 +2779,7 @@
             { key: 'PCS_OUTPUT', x: margin,              label: 'PCS',    color: '#eab308', symbol: 'inverter' },
             { key: 'LV_LINE',    x: margin + spacing,     label: 'LV',     color: '#f97316', symbol: 'cable' },
             { key: 'MVT',        x: margin + spacing * 2, label: 'MVT',    color: '#3b82f6', symbol: 'transformer' },
-            { key: 'MV_BUS',     x: margin + spacing * 3, label: 'MV Bus', color: '#8b5cf6', symbol: 'bus' },
+            { key: 'MV_BUS',     x: margin + spacing * 3, label: 'MV Junction', color: '#8b5cf6', symbol: 'bus' },
             { key: 'MV_LINE',    x: margin + spacing * 4, label: 'MV Ln',  color: '#6366f1', symbol: 'cable' },
             { key: 'MPT',        x: margin + spacing * 5, label: 'MPT',    color: '#3b82f6', symbol: 'transformer' },
             { key: 'POI',        x: margin + spacing * 6, label: 'POI',    color: '#10b981', symbol: 'grid' }
@@ -2907,7 +2907,8 @@
             // Hover tooltip
             g.addEventListener('mouseenter', function(e) {
                 if (!tooltip) return;
-                tooltip.innerHTML = '<strong style="color:' + node.color + ';">' + node.label + ' (' + node.key + ')</strong><br>'
+                var desc = (node.key === 'MV_BUS') ? '<br><span style="color:#aaa;font-size:10px;">MVT outputs aggregate here. Aux branches off.</span>' : '';
+                tooltip.innerHTML = '<strong style="color:' + node.color + ';">' + node.label + '</strong>' + desc + '<br>'
                     + 'P = ' + stage.p_mw.toFixed(3) + ' MW<br>'
                     + 'Q = ' + stage.q_mvar.toFixed(3) + ' MVAr<br>'
                     + 'S = ' + stage.s_mva.toFixed(3) + ' MVA<br>'
@@ -3098,7 +3099,7 @@
             var stageLabels = {
                 'POI': 'Grid POI', 'MPT': 'Main Power TR (MPT)',
                 'MV_LINE': 'MV Collector Line', 'AUX_BRANCH': 'Aux Branch',
-                'MV_BUS': 'MV Bus', 'MVT': 'Step-up TR (MVT)',
+                'MV_BUS': 'MV Junction (Aux Split)', 'MVT': 'Step-up TR (MVT)',
                 'LV_LINE': 'LV Busway', 'PCS_OUTPUT': 'PCS Output'
             };
             var stageColors = {
