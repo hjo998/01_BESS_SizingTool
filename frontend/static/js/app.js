@@ -2769,11 +2769,11 @@
         var container = document.getElementById('pfSldContainer');
         var containerW = container ? container.clientWidth - 32 : 800;  // minus padding
         var W = Math.max(containerW, 500);
-        var H = 200;
+        var H = 360;
         svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-        var nodeY = 70;
-        var nodeW = 56, nodeH = 36;
+        var nodeY = 120;
+        var nodeW = 64, nodeH = 40;
         var margin = 40;
         var spacing = (W - 2 * margin) / 6;  // 7 nodes, 6 gaps
 
