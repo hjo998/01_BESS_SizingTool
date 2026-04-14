@@ -2765,16 +2765,14 @@
         var byName = {};
         stages.forEach(function(s) { byName[s.name] = s; });
 
-        // Layout: use container width for responsive sizing
-        var container = document.getElementById('pfSldContainer');
-        var containerW = container ? container.clientWidth - 32 : 800;  // minus padding
-        var W = Math.max(containerW, 500);
-        var H = 360;
+        // Fixed viewBox — SVG scales responsively via width="100%"
+        var W = 900, H = 280;
+        // viewBox is set in HTML; ensure it matches
         svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-        var nodeY = 120;
-        var nodeW = 64, nodeH = 40;
-        var margin = 40;
+        var nodeY = 100;
+        var nodeW = 72, nodeH = 44;
+        var margin = 55;
         var spacing = (W - 2 * margin) / 6;  // 7 nodes, 6 gaps
 
         // Node positions (x centers) - dynamically spaced
@@ -2806,37 +2804,34 @@
         svg.appendChild(el('line', {
             x1: nodes[0].x, y1: nodeY + nodeH / 2,
             x2: nodes[nodes.length - 1].x, y2: nodeY + nodeH / 2,
-            stroke: '#cbd5e1', 'stroke-width': '3'
+            stroke: '#cbd5e1', 'stroke-width': '4'
         }));
 
         // Draw aux branch (from MV_BUS downward)
         var auxStage = byName['AUX_BRANCH'];
         var mvBusNode = nodes[3]; // MV_BUS
         if (auxStage && auxStage.p_loss_mw !== 0) {
-            // Vertical line down from MV Bus
             svg.appendChild(el('line', {
-                x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 16,
-                x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 50,
-                stroke: '#f59e0b', 'stroke-width': '2', 'stroke-dasharray': '4,3'
+                x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 22,
+                x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 75,
+                stroke: '#f59e0b', 'stroke-width': '2.5', 'stroke-dasharray': '6,4'
             }));
-            // Aux box
             svg.appendChild(el('rect', {
-                x: mvBusNode.x - 22, y: nodeY + nodeH / 2 + 50,
-                width: 44, height: 22, rx: 4,
-                fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '1.5'
+                x: mvBusNode.x - 32, y: nodeY + nodeH / 2 + 75,
+                width: 64, height: 30, rx: 6,
+                fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '2'
             }));
             var auxText = el('text', {
-                x: mvBusNode.x, y: nodeY + nodeH / 2 + 65,
-                'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#b45309'
+                x: mvBusNode.x, y: nodeY + nodeH / 2 + 95,
+                'text-anchor': 'middle', 'font-size': '13', 'font-weight': '700', fill: '#b45309'
             });
             auxText.textContent = 'AUX';
             svg.appendChild(auxText);
-            // Aux power label
             var auxLabel = el('text', {
-                x: mvBusNode.x + 28, y: nodeY + nodeH / 2 + 62,
-                'font-size': '8', fill: '#dc2626'
+                x: mvBusNode.x + 42, y: nodeY + nodeH / 2 + 92,
+                'font-size': '12', 'font-weight': '600', fill: '#dc2626'
             });
-            auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + 'MW';
+            auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + ' MW';
             svg.appendChild(auxLabel);
         }
 
@@ -2849,45 +2844,41 @@
             var g = el('g', { 'data-stage': node.key, cursor: 'pointer' });
 
             if (node.symbol === 'transformer') {
-                // Transformer: two overlapping circles
-                g.appendChild(el('circle', { cx: x - 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
-                g.appendChild(el('circle', { cx: x + 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('circle', { cx: x - 10, cy: y + nodeH / 2, r: 18, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
+                g.appendChild(el('circle', { cx: x + 10, cy: y + nodeH / 2, r: 18, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
             } else if (node.symbol === 'bus') {
-                // Bus: thick horizontal bar
-                g.appendChild(el('rect', { x: x - 20, y: y + nodeH / 2 - 4, width: 40, height: 8, rx: 2, fill: node.color }));
+                g.appendChild(el('rect', { x: x - 28, y: y + nodeH / 2 - 6, width: 56, height: 12, rx: 3, fill: node.color }));
             } else if (node.symbol === 'cable') {
-                // Cable: double line segment (no box)
-                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 - 2, x2: x + 15, y2: y + nodeH / 2 - 2, stroke: node.color, 'stroke-width': '2' }));
-                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 + 2, x2: x + 15, y2: y + nodeH / 2 + 2, stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('line', { x1: x - 22, y1: y + nodeH / 2 - 3, x2: x + 22, y2: y + nodeH / 2 - 3, stroke: node.color, 'stroke-width': '3' }));
+                g.appendChild(el('line', { x1: x - 22, y1: y + nodeH / 2 + 3, x2: x + 22, y2: y + nodeH / 2 + 3, stroke: node.color, 'stroke-width': '3' }));
             } else {
-                // Default: rounded rect (PCS, POI)
-                g.appendChild(el('rect', { x: x - nodeW / 2, y: y, width: nodeW, height: nodeH, rx: 6, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
-                var sym = el('text', { x: x, y: y + nodeH / 2 + 4, 'text-anchor': 'middle', 'font-size': '11', 'font-weight': '800', fill: node.color });
+                g.appendChild(el('rect', { x: x - nodeW / 2, y: y, width: nodeW, height: nodeH, rx: 8, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
+                var sym = el('text', { x: x, y: y + nodeH / 2 + 5, 'text-anchor': 'middle', 'font-size': '16', 'font-weight': '800', fill: node.color });
                 sym.textContent = node.label;
                 g.appendChild(sym);
             }
 
             // Label below
             if (node.symbol === 'transformer' || node.symbol === 'cable' || node.symbol === 'bus') {
-                var lb = el('text', { x: x, y: y + nodeH + 12, 'text-anchor': 'middle', 'font-size': '8', fill: '#64748b', 'font-weight': '600' });
+                var lb = el('text', { x: x, y: y + nodeH + 18, 'text-anchor': 'middle', 'font-size': '13', fill: '#64748b', 'font-weight': '600' });
                 lb.textContent = node.label;
                 g.appendChild(lb);
             }
 
-            // P value above (blue)
-            var pText = el('text', { x: x, y: y - 8, 'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#2563eb' });
+            // P value above (blue, large)
+            var pText = el('text', { x: x, y: y - 12, 'text-anchor': 'middle', 'font-size': '15', 'font-weight': '700', fill: '#2563eb' });
             pText.textContent = stage.p_mw.toFixed(1);
             g.appendChild(pText);
 
-            // Loss below connection (red) - only for stages with losses
+            // Loss below connection (red)
             if (stage.p_loss_mw > 0.001 && node.symbol !== 'bus') {
-                var lossText = el('text', { x: x, y: y + nodeH + 24, 'text-anchor': 'middle', 'font-size': '8', fill: '#dc2626' });
+                var lossText = el('text', { x: x, y: y + nodeH + 34, 'text-anchor': 'middle', 'font-size': '12', fill: '#dc2626' });
                 lossText.textContent = '-' + stage.p_loss_mw.toFixed(2);
                 g.appendChild(lossText);
             }
 
-            // Voltage label (tiny, on connections)
-            var vText = el('text', { x: x, y: y - 20, 'text-anchor': 'middle', 'font-size': '7', fill: '#94a3b8' });
+            // Voltage label
+            var vText = el('text', { x: x, y: y - 28, 'text-anchor': 'middle', 'font-size': '11', fill: '#94a3b8' });
             vText.textContent = stage.voltage_kv.toFixed(1) + 'kV';
             g.appendChild(vText);
 
@@ -2922,9 +2913,9 @@
         });
 
         // Direction arrow at bottom
-        var arrowY = H - 15;
-        svg.appendChild(el('line', { x1: 50, y1: arrowY, x2: 410, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1', 'marker-end': 'url(#arrowhead)' }));
-        var arrowLabel = el('text', { x: 230, y: arrowY - 4, 'text-anchor': 'middle', 'font-size': '8', fill: '#94a3b8' });
+        var arrowY = H - 20;
+        svg.appendChild(el('line', { x1: margin, y1: arrowY, x2: W - margin, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1.5', 'marker-end': 'url(#arrowhead)' }));
+        var arrowLabel = el('text', { x: W / 2, y: arrowY - 6, 'text-anchor': 'middle', 'font-size': '12', fill: '#94a3b8' });
         arrowLabel.textContent = 'Power Flow \u2192 (Discharge)';
         svg.appendChild(arrowLabel);
     }
