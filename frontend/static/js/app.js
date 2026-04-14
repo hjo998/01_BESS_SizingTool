@@ -169,6 +169,24 @@
         setVal('lossFactors',        d.loss_factors);
         setVal('mbmsConsumption',    d.mbms_consumption);
 
+        // Power Flow equipment parameters
+        setVal('pfPcsVoltage',  d.pf_pcs_voltage_kv);
+        setVal('pfLvR',         d.pf_lv_r_ohm_per_km);
+        setVal('pfLvX',         d.pf_lv_x_ohm_per_km);
+        if (d.pf_lv_length_km != null) setVal('pfLvLen', d.pf_lv_length_km * 1000);  // km → m for UI
+        setVal('pfMvtCapacity', d.pf_mvt_capacity_mva);
+        setVal('pfMvtEff',      d.pf_mvt_efficiency_pct);
+        setVal('pfMvtZ',        d.pf_mvt_impedance_pct);
+        setVal('pfMvR',         d.pf_mv_r_ohm_per_km);
+        setVal('pfMvX',         d.pf_mv_x_ohm_per_km);
+        setVal('pfMvLen',       d.pf_mv_length_km);
+        setVal('pfMvVoltage',   d.pf_mv_voltage_kv);
+        setVal('pfMptCapacity', d.pf_mpt_capacity_mva);
+        setVal('pfMptEff',      d.pf_mpt_efficiency_pct);
+        setVal('pfMptZ',        d.pf_mpt_impedance_pct);
+        setVal('pfMptVoltage',  d.pf_mpt_voltage_hv_kv);
+        setVal('pfAuxTrEff',    d.pf_aux_tr_eff_pct);
+
         updateEfficiencyPreview();
 
         // Tab 3 — Product selection (cascading dropdowns)
@@ -1713,6 +1731,24 @@
 
             // Augmentation waves (chip UI)
             augmentation: [],
+
+            // Power Flow equipment parameters (optional, with defaults)
+            pf_pcs_voltage_kv:     num('pfPcsVoltage', 0.69),
+            pf_lv_r_ohm_per_km:    num('pfLvR', 0.012),
+            pf_lv_x_ohm_per_km:    num('pfLvX', 0.018),
+            pf_lv_length_km:       num('pfLvLen', 5) / 1000,  // UI shows meters, API expects km
+            pf_mvt_capacity_mva:   num('pfMvtCapacity', 100),
+            pf_mvt_efficiency_pct: num('pfMvtEff', 98.9),
+            pf_mvt_impedance_pct:  num('pfMvtZ', 6.0),
+            pf_mv_r_ohm_per_km:    num('pfMvR', 0.115),
+            pf_mv_x_ohm_per_km:    num('pfMvX', 0.125),
+            pf_mv_length_km:       num('pfMvLen', 2.0),
+            pf_mv_voltage_kv:      num('pfMvVoltage', 34.5),
+            pf_mpt_capacity_mva:   num('pfMptCapacity', 300),
+            pf_mpt_efficiency_pct: num('pfMptEff', 99.65),
+            pf_mpt_impedance_pct:  num('pfMptZ', 14.5),
+            pf_mpt_voltage_hv_kv:  num('pfMptVoltage', 154),
+            pf_aux_tr_eff_pct:     num('pfAuxTrEff', 98.5),
         };
 
         var augContainer = document.getElementById('augCompactWaves');
@@ -1947,10 +1983,14 @@
         // F2+F5: Update Reactive Power Tab
         updateReactivePowerTab(result);
         var pcsSuf = document.getElementById('res-pcsSufficient');
-        if (pcsSuf && rp) {
-            pcsSuf.innerHTML = rp.is_pcs_sufficient
-                ? '<span class="badge badge--ok">YES</span>'
-                : '<span class="badge badge--danger">NO</span>';
+        if (pcsSuf) {
+            var pfData = result.power_flow;
+            var isSufficient = pfData ? pfData.is_pcs_sufficient : (rp ? rp.is_pcs_sufficient : null);
+            if (isSufficient !== null && isSufficient !== undefined) {
+                pcsSuf.innerHTML = isSufficient
+                    ? '<span class="badge badge--ok">YES</span>'
+                    : '<span class="badge badge--danger">NO</span>';
+            }
         }
 
         // Retention Table (with toggle-able intermediate columns + augmentation)
@@ -2127,6 +2167,25 @@
 
         // Store result for session use
         try { sessionStorage.setItem('bess_last_result', JSON.stringify(result)); } catch (e) { /* noop */ }
+
+        // Store params for RTE page
+        try {
+            var formSnap = collectFormData();
+            sessionStorage.setItem('rte_params', JSON.stringify({
+                efficiency: {
+                    hv_ac_cabling: formSnap.hv_ac_cabling || 0.999,
+                    hv_transformer: formSnap.hv_transformer || 0.995,
+                    mv_ac_cabling: formSnap.mv_ac_cabling || 0.999,
+                    mv_transformer: formSnap.mv_transformer || 0.993,
+                    lv_cabling: formSnap.lv_cabling || 0.996,
+                    pcs_efficiency: formSnap.pcs_efficiency || 0.985,
+                    dc_cabling: formSnap.dc_cabling || 0.999,
+                },
+                power_flow: result.power_flow || {},
+                rte: result.rte || {},
+                summary: result.summary || {},
+            }));
+        } catch (e) { /* noop */ }
     }
 
     function collectAugMarkers() {
@@ -2689,92 +2748,467 @@
     });
 
     // ═══════════════════════════════════════════════════════════
+    // F2+F5: SVG Single Line Diagram
+    // ═══════════════════════════════════════════════════════════
+    function drawSLD(pf) {
+        var svg = document.getElementById('pfSldSvg');
+        if (!svg) return;
+        var tooltip = document.getElementById('pfSldTooltip');
+
+        // Clear existing
+        svg.innerHTML = '';
+
+        var stages = pf.stages;
+        if (!stages || stages.length === 0) return;
+
+        // Build a lookup by stage name for easy access
+        var byName = {};
+        stages.forEach(function(s) { byName[s.name] = s; });
+
+        // Layout constants
+        var W = 460, H = 180;
+        var nodeY = 70;  // main bus y position
+        var nodeW = 48, nodeH = 32;
+
+        // Node positions (x centers) - 7 main nodes + 1 aux branch
+        var nodes = [
+            { key: 'PCS_OUTPUT', x: 35,  label: 'PCS',   color: '#eab308', symbol: 'inverter' },
+            { key: 'LV_LINE',    x: 100, label: 'LV',    color: '#f97316', symbol: 'cable' },
+            { key: 'MVT',        x: 155, label: 'MVT',   color: '#3b82f6', symbol: 'transformer' },
+            { key: 'MV_BUS',     x: 225, label: 'MV Bus', color: '#8b5cf6', symbol: 'bus' },
+            { key: 'MV_LINE',    x: 295, label: 'MV Ln', color: '#6366f1', symbol: 'cable' },
+            { key: 'MPT',        x: 355, label: 'MPT',   color: '#3b82f6', symbol: 'transformer' },
+            { key: 'POI',        x: 425, label: 'POI',   color: '#10b981', symbol: 'grid' }
+        ];
+
+        // Helper: create SVG element
+        function el(tag, attrs) {
+            var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+            for (var k in attrs) e.setAttribute(k, attrs[k]);
+            return e;
+        }
+
+        // Arrowhead marker definition (must come before line that uses it)
+        var defs = el('defs', {});
+        var marker = el('marker', { id: 'arrowhead', markerWidth: '8', markerHeight: '6', refX: '8', refY: '3', orient: 'auto' });
+        marker.appendChild(el('polygon', { points: '0 0, 8 3, 0 6', fill: '#cbd5e1' }));
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        // Draw main connection line
+        svg.appendChild(el('line', {
+            x1: nodes[0].x, y1: nodeY + nodeH / 2,
+            x2: nodes[nodes.length - 1].x, y2: nodeY + nodeH / 2,
+            stroke: '#cbd5e1', 'stroke-width': '3'
+        }));
+
+        // Draw aux branch (from MV_BUS downward)
+        var auxStage = byName['AUX_BRANCH'];
+        var mvBusNode = nodes[3]; // MV_BUS
+        if (auxStage && auxStage.p_loss_mw !== 0) {
+            // Vertical line down from MV Bus
+            svg.appendChild(el('line', {
+                x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 16,
+                x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 50,
+                stroke: '#f59e0b', 'stroke-width': '2', 'stroke-dasharray': '4,3'
+            }));
+            // Aux box
+            svg.appendChild(el('rect', {
+                x: mvBusNode.x - 22, y: nodeY + nodeH / 2 + 50,
+                width: 44, height: 22, rx: 4,
+                fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '1.5'
+            }));
+            var auxText = el('text', {
+                x: mvBusNode.x, y: nodeY + nodeH / 2 + 65,
+                'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#b45309'
+            });
+            auxText.textContent = 'AUX';
+            svg.appendChild(auxText);
+            // Aux power label
+            var auxLabel = el('text', {
+                x: mvBusNode.x + 28, y: nodeY + nodeH / 2 + 62,
+                'font-size': '8', fill: '#dc2626'
+            });
+            auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + 'MW';
+            svg.appendChild(auxLabel);
+        }
+
+        // Draw each node
+        nodes.forEach(function(node) {
+            var stage = byName[node.key];
+            if (!stage) return;
+
+            var x = node.x, y = nodeY;
+            var g = el('g', { 'data-stage': node.key, cursor: 'pointer' });
+
+            if (node.symbol === 'transformer') {
+                // Transformer: two overlapping circles
+                g.appendChild(el('circle', { cx: x - 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('circle', { cx: x + 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
+            } else if (node.symbol === 'bus') {
+                // Bus: thick horizontal bar
+                g.appendChild(el('rect', { x: x - 20, y: y + nodeH / 2 - 4, width: 40, height: 8, rx: 2, fill: node.color }));
+            } else if (node.symbol === 'cable') {
+                // Cable: double line segment (no box)
+                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 - 2, x2: x + 15, y2: y + nodeH / 2 - 2, stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 + 2, x2: x + 15, y2: y + nodeH / 2 + 2, stroke: node.color, 'stroke-width': '2' }));
+            } else {
+                // Default: rounded rect (PCS, POI)
+                g.appendChild(el('rect', { x: x - nodeW / 2, y: y, width: nodeW, height: nodeH, rx: 6, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
+                var sym = el('text', { x: x, y: y + nodeH / 2 + 4, 'text-anchor': 'middle', 'font-size': '11', 'font-weight': '800', fill: node.color });
+                sym.textContent = node.label;
+                g.appendChild(sym);
+            }
+
+            // Label below
+            if (node.symbol === 'transformer' || node.symbol === 'cable' || node.symbol === 'bus') {
+                var lb = el('text', { x: x, y: y + nodeH + 12, 'text-anchor': 'middle', 'font-size': '8', fill: '#64748b', 'font-weight': '600' });
+                lb.textContent = node.label;
+                g.appendChild(lb);
+            }
+
+            // P value above (blue)
+            var pText = el('text', { x: x, y: y - 8, 'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#2563eb' });
+            pText.textContent = stage.p_mw.toFixed(1);
+            g.appendChild(pText);
+
+            // Loss below connection (red) - only for stages with losses
+            if (stage.p_loss_mw > 0.001 && node.symbol !== 'bus') {
+                var lossText = el('text', { x: x, y: y + nodeH + 24, 'text-anchor': 'middle', 'font-size': '8', fill: '#dc2626' });
+                lossText.textContent = '-' + stage.p_loss_mw.toFixed(2);
+                g.appendChild(lossText);
+            }
+
+            // Voltage label (tiny, on connections)
+            var vText = el('text', { x: x, y: y - 20, 'text-anchor': 'middle', 'font-size': '7', fill: '#94a3b8' });
+            vText.textContent = stage.voltage_kv.toFixed(1) + 'kV';
+            g.appendChild(vText);
+
+            // Hover tooltip
+            g.addEventListener('mouseenter', function(e) {
+                if (!tooltip) return;
+                tooltip.innerHTML = '<strong style="color:' + node.color + ';">' + node.label + ' (' + node.key + ')</strong><br>'
+                    + 'P = ' + stage.p_mw.toFixed(3) + ' MW<br>'
+                    + 'Q = ' + stage.q_mvar.toFixed(3) + ' MVAr<br>'
+                    + 'S = ' + stage.s_mva.toFixed(3) + ' MVA<br>'
+                    + 'I = ' + Math.round(stage.current_a).toLocaleString() + ' A<br>'
+                    + 'PF = ' + stage.pf.toFixed(4) + '<br>'
+                    + 'V = ' + stage.voltage_kv.toFixed(1) + ' kV'
+                    + (stage.p_loss_mw > 0.001 ? '<br><span style="color:#f87171;">\u25B3P = -' + stage.p_loss_mw.toFixed(3) + ' MW</span>' : '')
+                    + (Math.abs(stage.q_loss_mvar) > 0.001 ? '<br><span style="color:#f87171;">\u25B3Q = -' + stage.q_loss_mvar.toFixed(3) + ' MVAr</span>' : '');
+                tooltip.style.display = 'block';
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+            g.addEventListener('mouseleave', function() {
+                if (tooltip) tooltip.style.display = 'none';
+            });
+            g.addEventListener('mousemove', function(e) {
+                if (!tooltip) return;
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+
+            svg.appendChild(g);
+        });
+
+        // Direction arrow at bottom
+        var arrowY = H - 15;
+        svg.appendChild(el('line', { x1: 50, y1: arrowY, x2: 410, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1', 'marker-end': 'url(#arrowhead)' }));
+        var arrowLabel = el('text', { x: 230, y: arrowY - 4, 'text-anchor': 'middle', 'font-size': '8', fill: '#94a3b8' });
+        arrowLabel.textContent = 'Power Flow \u2192 (Discharge)';
+        svg.appendChild(arrowLabel);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // F2+F5: Loss Waterfall Chart
+    // ═══════════════════════════════════════════════════════════
+    function drawLossWaterfall(pf) {
+        var container = document.getElementById('pfWaterfallContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        var stages = pf.stages || [];
+        if (stages.length === 0) return;
+
+        // Collect loss stages
+        var items = [];
+        var pcsP = 0;
+        var poiP = 0;
+        stages.forEach(function(s) {
+            if (s.name === 'PCS_OUTPUT') { pcsP = s.p_mw; return; }
+            if (s.name === 'POI') { poiP = s.p_mw; return; }
+            if (s.name === 'MV_BUS') return; // aggregation only, no loss
+            if (Math.abs(s.p_loss_mw) < 0.0001) return;
+            items.push({ name: s.name, loss: Math.abs(s.p_loss_mw) });
+        });
+
+        var maxP = pcsP;
+        if (maxP <= 0) return;
+
+        // Build bars
+        var html = '';
+
+        function buildBar(label, value, max, color, isLoss) {
+            var pct = (value / max * 100).toFixed(1);
+            var textColor = isLoss ? '#dc2626' : '#059669';
+            var prefix = isLoss ? '-' : '';
+            return '<div style="display:flex;align-items:center;margin-bottom:3px;">'
+                + '<div style="width:90px;text-align:right;padding-right:8px;font-size:10px;color:#64748b;white-space:nowrap;">' + label + '</div>'
+                + '<div style="flex:1;background:#f1f5f9;border-radius:3px;height:16px;position:relative;">'
+                + '<div style="width:' + pct + '%;background:' + color + ';height:100%;border-radius:3px;min-width:2px;opacity:' + (isLoss ? '0.7' : '0.85') + ';"></div>'
+                + '</div>'
+                + '<div style="width:65px;text-align:right;font-size:10px;font-weight:700;color:' + textColor + ';font-family:monospace;padding-left:6px;">' + prefix + value.toFixed(2) + '</div>'
+                + '</div>';
+        }
+
+        // PCS bar (full width, green)
+        html += buildBar('PCS Output', pcsP, maxP, '#10b981', false);
+
+        // Loss bars (red, proportional)
+        var lossLabels = {
+            'LV_LINE': 'LV Busway', 'MVT': 'MVT (Step-up TR)',
+            'AUX_BRANCH': 'Aux Load', 'MV_LINE': 'MV Collector', 'MPT': 'MPT (Main TR)'
+        };
+        items.forEach(function(item) {
+            var label = lossLabels[item.name] || item.name;
+            html += buildBar(label, item.loss, maxP, '#ef4444', true);
+        });
+
+        // POI bar (green)
+        html += buildBar('POI Output', poiP, maxP, '#10b981', false);
+
+        container.innerHTML = html;
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // F2+F5: Reactive Power Tab Display
     // ═══════════════════════════════════════════════════════════
     function updateReactivePowerTab(result) {
-        var rp = result.reactive_power;
-        var bat = result.battery || {};
-        var pcs = result.pcs || {};
-        var sum = result.summary || {};
-        var eff = result.efficiency || {};
-        if (!rp) return;
+        var pf = result.power_flow;
 
-        var bufPct = parseFloat(document.getElementById('rpBufferPct') ? document.getElementById('rpBufferPct').value : 5) || 5;
-        var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
+        // If no power_flow data, hide the new sections and use legacy fallback
+        if (!pf || !pf.stages) {
+            // Legacy fallback: use old reactive_power result if available
+            var rp = result.reactive_power;
+            if (!rp) return;
 
-        var pPoi = sum.required_power_mw ? sum.required_power_mw * 1000 : 0;
-        var sPoi = rp.total_apparent_power_poi_kva || 0;
-        var qGrid = rp.grid_kvar || 0;
-        var pfPoi = pPoi > 0 ? (pPoi / sPoi) : 0;
+            var bat = result.battery || {};
+            var pcs = result.pcs || {};
+            var sum = result.summary || {};
 
-        // MV level: reconstruct from result
-        var pLossHv = rp.p_loss_hv_kw || 0;
-        var pAux = bat.aux_power_peak_mw ? bat.aux_power_peak_mw * 1000 : 0;
-        var pMv = pPoi + pLossHv + pAux;
-        var qHv = rp.hv_tr_kvar || 0;
-        // MV transformer Q (estimate from impedance)
-        var qMvTr = sPoi * 0.08; // default impedance
-        var qMv = qGrid + qHv + qMvTr;
-        var sMv = Math.sqrt(pMv * pMv + qMv * qMv);
-        var pfMv = rp.pf_at_mv || (pMv / sMv);
+            var bufPct = parseFloat(document.getElementById('rpBufferPct') ? document.getElementById('rpBufferPct').value : 5) || 5;
+            var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
 
-        // Inverter level
-        var sInv = rp.total_s_inverter_kva || 0;
-        var pInv = sInv * pfMv; // approximate
-        var qInv = Math.sqrt(Math.max(sInv * sInv - pInv * pInv, 0));
+            var pPoi = sum.required_power_mw ? sum.required_power_mw * 1000 : 0;
+            var sPoi = rp.total_apparent_power_poi_kva || 0;
+            var qGrid = rp.grid_kvar || 0;
+            var pfPoi = pPoi > 0 ? (pPoi / sPoi) : 0;
+            var qSign = leadLag === 'leading' ? -1 : 1;
 
-        // Leading sign convention
-        var qSign = leadLag === 'leading' ? -1 : 1;
+            // Populate hidden legacy IDs for backward compat
+            setText('rp-poi-p', pPoi.toFixed(1));
+            setText('rp-poi-q', (qGrid * qSign).toFixed(1));
+            setText('rp-poi-s', sPoi.toFixed(1));
+            setText('rp-poi-pf', pfPoi.toFixed(4));
 
-        // Populate POI → PCS table
-        setText('rp-poi-p', pPoi.toFixed(1));
-        setText('rp-poi-q', (qGrid * qSign).toFixed(1));
-        setText('rp-poi-s', sPoi.toFixed(1));
-        setText('rp-poi-pf', pfPoi.toFixed(4));
+            var pLossHv = rp.p_loss_hv_kw || 0;
+            var pAux = bat.aux_power_peak_mw ? bat.aux_power_peak_mw * 1000 : 0;
+            var pMv = pPoi + pLossHv + pAux;
+            var qHv = rp.hv_tr_kvar || 0;
+            var qMvTr = sPoi * 0.08;
+            var qMv = qGrid + qHv + qMvTr;
+            var sMv = Math.sqrt(pMv * pMv + qMv * qMv);
+            var pfMv = rp.pf_at_mv || (pMv / sMv);
 
-        setText('rp-mv-p', pMv.toFixed(1));
-        setText('rp-mv-q', (qMv * qSign).toFixed(1));
-        setText('rp-mv-s', sMv.toFixed(1));
-        setText('rp-mv-pf', pfMv.toFixed(4));
+            setText('rp-mv-p', pMv.toFixed(1));
+            setText('rp-mv-q', (qMv * qSign).toFixed(1));
+            setText('rp-mv-s', sMv.toFixed(1));
+            setText('rp-mv-pf', pfMv.toFixed(4));
 
-        setText('rp-inv-p', pInv.toFixed(1));
-        setText('rp-inv-q', (qInv * qSign).toFixed(1));
-        setText('rp-inv-s', sInv.toFixed(1));
-        setText('rp-inv-pf', pfMv.toFixed(4));
+            var sInv = rp.total_s_inverter_kva || 0;
+            var pInv = sInv * pfMv;
+            var qInv = Math.sqrt(Math.max(sInv * sInv - pInv * pInv, 0));
 
-        // PCS Capacity Check
-        var sAvail = rp.available_s_total_kva || 0;
-        var sReqBuf = sInv * (1 + bufPct / 100);
-        var margin = sAvail > 0 ? ((sAvail - sReqBuf) / sAvail * 100) : 0;
-        var sufficient = sAvail >= sReqBuf;
+            setText('rp-inv-p', pInv.toFixed(1));
+            setText('rp-inv-q', (qInv * qSign).toFixed(1));
+            setText('rp-inv-s', sInv.toFixed(1));
+            setText('rp-inv-pf', pfMv.toFixed(4));
 
-        setText('rp-req-s', sInv.toFixed(1));
-        setText('rp-avail-s', sAvail.toFixed(1));
-        setText('rp-buf-label', bufPct + '%');
-        setText('rp-req-s-buf', sReqBuf.toFixed(1));
-        setText('rp-margin', margin.toFixed(1));
-        var suffEl = document.getElementById('rp-sufficient');
-        if (suffEl) {
-            suffEl.innerHTML = sufficient
-                ? '<span style="color:#16a34a;font-weight:700;">YES ✓</span>'
-                : '<span style="color:#dc2626;font-weight:700;">NO ✗</span>';
+            var sAvail = rp.available_s_total_kva || 0;
+            var sReqBuf = sInv * (1 + bufPct / 100);
+            var margin = sAvail > 0 ? ((sAvail - sReqBuf) / sAvail * 100) : 0;
+            var sufficient = sAvail >= sReqBuf;
+
+            setText('rp-req-s', sInv.toFixed(1));
+            setText('rp-avail-s', sAvail.toFixed(1));
+            setText('rp-margin', margin.toFixed(1));
+            var suffEl = document.getElementById('rp-sufficient');
+            if (suffEl) {
+                suffEl.innerHTML = sufficient
+                    ? '<span style="color:#16a34a;font-weight:700;">YES ✓</span>'
+                    : '<span style="color:#dc2626;font-weight:700;">NO ✗</span>';
+            }
+
+            var llLabel = document.getElementById('rp-lead-lag-label');
+            if (llLabel) llLabel.textContent = leadLag === 'leading' ? 'Leading (capacitive)' : 'Lagging (inductive)';
+            return;
         }
 
-        // SLD Diagram values
-        setText('sld-poi-s', sPoi.toFixed(0));
-        setText('sld-poi-p', pPoi.toFixed(0));
-        setText('sld-poi-q', (qGrid * qSign).toFixed(0));
-        setText('sld-poi-pf', pfPoi.toFixed(3));
-        setText('sld-hv-loss', pLossHv.toFixed(1));
-        setText('sld-hv-q', qHv.toFixed(0));
-        setText('sld-mv-pf', pfMv.toFixed(3));
-        setText('sld-mv-s', sMv.toFixed(0));
-        setText('sld-mv-p', pMv.toFixed(0));
-        setText('sld-mv-q', (qMv * qSign).toFixed(0));
-        setText('sld-inv-s', sInv.toFixed(0));
-        setText('sld-avail', sAvail.toFixed(0));
-        setText('sld-pcs-count', pcs.no_of_pcs || '—');
-        setText('sld-links', bat.no_of_links || '—');
+        // ── New power_flow display ──
+
+        // Show the new sections, hide placeholder
+        var stagesSection = document.getElementById('pfStagesSection');
+        var summarySection = document.getElementById('pfSummarySection');
+        var placeholder = document.getElementById('pfPlaceholder');
+        if (stagesSection) stagesSection.style.display = '';
+        if (summarySection) summarySection.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+
+        var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
+        var qSign = leadLag === 'leading' ? -1 : 1;
+
+        // --- Build staged cards ---
+        var container = document.getElementById('pfStagesContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        // Display stages in reverse order (POI at top, PCS at bottom)
+        // to match the "top-down from grid" visual
+        var stages = pf.stages.slice().reverse();
+
+        // Color mapping for stage types
+        var stageColors = {
+            'POI': '#10b981',
+            'MPT': '#3b82f6',
+            'MV_LINE': '#6366f1',
+            'AUX_BRANCH': '#f59e0b',
+            'MV_BUS': '#8b5cf6',
+            'MVT': '#3b82f6',
+            'LV_LINE': '#f97316',
+            'PCS_OUTPUT': '#eab308'
+        };
+
+        var stageLabels = {
+            'POI': 'Grid POI',
+            'MPT': 'Main Power TR',
+            'MV_LINE': 'MV Collector',
+            'AUX_BRANCH': 'Aux Branch',
+            'MV_BUS': 'MV Bus',
+            'MVT': 'Step-up TR (MVT)',
+            'LV_LINE': 'LV Busway',
+            'PCS_OUTPUT': 'PCS Output'
+        };
+
+        stages.forEach(function (s, idx) {
+            var color = stageColors[s.name] || '#888';
+            var label = stageLabels[s.name] || s.name;
+
+            var card = document.createElement('div');
+            card.style.cssText = 'border-left:4px solid ' + color + ';background:#fff;border-radius:8px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05);';
+
+            var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+                + '<span style="font-size:10px;font-weight:800;text-transform:uppercase;color:' + color + ';">' + label + '</span>'
+                + '<span style="font-size:9px;color:#999;font-family:monospace;">' + s.voltage_kv.toFixed(1) + ' kV</span>'
+                + '</div>';
+
+            var grid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px;font-size:11px;">'
+                + '<div><span style="color:#888;font-size:9px;">P</span><br><strong style="color:#2563eb;">' + s.p_mw.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MW</span></div>'
+                + '<div><span style="color:#888;font-size:9px;">Q</span><br><strong style="color:#7c3aed;">' + (s.q_mvar * qSign).toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVAr</span></div>'
+                + '<div><span style="color:#888;font-size:9px;">S</span><br><strong>' + s.s_mva.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVA</span></div>'
+                + '<div><span style="color:#888;font-size:9px;">I</span><br><strong>' + Math.round(s.current_a).toLocaleString() + '</strong> <span style="font-size:9px;color:#888;">A</span></div>'
+                + '<div><span style="color:#888;font-size:9px;">PF</span><br><strong>' + s.pf.toFixed(3) + '</strong></div>'
+                + '</div>';
+
+            // Loss row (only if there are losses)
+            var lossRow = '';
+            if (s.p_loss_mw > 0.0001 || Math.abs(s.q_loss_mvar) > 0.0001) {
+                lossRow = '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f0f0f0;font-size:10px;color:#dc2626;">'
+                    + '\u25B3P: -' + s.p_loss_mw.toFixed(3) + ' MW'
+                    + (Math.abs(s.q_loss_mvar) > 0.0001 ? '&nbsp;&nbsp;\u25B3Q: -' + s.q_loss_mvar.toFixed(3) + ' MVAr' : '')
+                    + '</div>';
+            }
+
+            card.innerHTML = header + grid + lossRow;
+            container.appendChild(card);
+
+            // Arrow between stages (except after last)
+            if (idx < stages.length - 1) {
+                var arrow = document.createElement('div');
+                arrow.style.cssText = 'text-align:center;color:#ccc;font-size:14px;line-height:1;margin:2px 0;';
+                arrow.innerHTML = '\u2193';
+                container.appendChild(arrow);
+            }
+        });
+
+        // --- Summary section ---
+        setText('pf-sys-eff', pf.system_efficiency_pct.toFixed(1));
+        setText('pf-total-p-loss', pf.total_p_loss_mw.toFixed(3));
+        setText('pf-total-q-loss', pf.total_q_consumed_mvar.toFixed(3));
+        setText('pf-aux-mv', pf.aux_power_at_mv_mw.toFixed(3));
+        setText('pf-direction', pf.direction === 'discharge' ? 'Discharge (Battery\u2192Grid)' : 'Charge (Grid\u2192Battery)');
+        setText('pf-mode', pf.calculation_mode === 'top_down' ? 'Top-down (POI\u2192PCS)' : 'Bottom-up (PCS\u2192POI)');
+
+        // Draw SLD and Waterfall
+        drawSLD(pf);
+        drawLossWaterfall(pf);
+
+        // Capacity check
+        setText('pf-req-s', pf.total_s_required_mva.toFixed(2));
+        setText('pf-avail-s', pf.available_s_total_mva.toFixed(2));
+        setText('pf-cap-ratio', pf.capacity_ratio_pct.toFixed(1));
+        var suffEl = document.getElementById('pf-sufficient');
+        if (suffEl) {
+            suffEl.innerHTML = pf.is_pcs_sufficient
+                ? '<span style="color:#16a34a;font-weight:700;">YES \u2713</span>'
+                : '<span style="color:#dc2626;font-weight:700;">NO \u2717</span>';
+        }
+
+        // Reference points
+        setText('pf-ref-poi-p', pf.p_at_poi.toFixed(2));
+        setText('pf-ref-poi-q', (pf.q_at_poi * qSign).toFixed(2));
+        setText('pf-ref-poi-s', pf.s_at_poi.toFixed(2));
+        setText('pf-ref-poi-pf', pf.pf_at_poi.toFixed(4));
+        setText('pf-ref-mv-p', pf.p_at_mv.toFixed(2));
+        setText('pf-ref-mv-q', (pf.q_at_mv * qSign).toFixed(2));
+        setText('pf-ref-mv-s', pf.s_at_mv.toFixed(2));
+        setText('pf-ref-mv-pf', pf.pf_at_mv.toFixed(4));
+        setText('pf-ref-pcs-p', pf.p_at_pcs.toFixed(2));
+        setText('pf-ref-pcs-q', (pf.q_at_pcs * qSign).toFixed(2));
+        setText('pf-ref-pcs-s', pf.s_at_pcs.toFixed(2));
+        var pfPcs = pf.p_at_pcs / pf.s_at_pcs;
+        setText('pf-ref-pcs-pf', isNaN(pfPcs) ? '\u2014' : pfPcs.toFixed(4));
+
+        // Also update the old rp- IDs for backward compatibility with result page / other code
+        // that might reference them
+        var rp = result.reactive_power;
+        if (rp) {
+            setText('rp-poi-p', (pf.p_at_poi * 1000).toFixed(1));
+            setText('rp-poi-q', (pf.q_at_poi * qSign * 1000).toFixed(1));
+            setText('rp-poi-s', (pf.s_at_poi * 1000).toFixed(1));
+            setText('rp-poi-pf', pf.pf_at_poi.toFixed(4));
+            setText('rp-mv-p', (pf.p_at_mv * 1000).toFixed(1));
+            setText('rp-mv-q', (pf.q_at_mv * qSign * 1000).toFixed(1));
+            setText('rp-mv-s', (pf.s_at_mv * 1000).toFixed(1));
+            setText('rp-mv-pf', pf.pf_at_mv.toFixed(4));
+            setText('rp-inv-p', (pf.p_at_pcs * 1000).toFixed(1));
+            setText('rp-inv-q', (pf.q_at_pcs * qSign * 1000).toFixed(1));
+            setText('rp-inv-s', (pf.s_at_pcs * 1000).toFixed(1));
+            setText('rp-inv-pf', isNaN(pfPcs) ? '\u2014' : pfPcs.toFixed(4));
+        }
+
+        // Update old capacity check IDs too
+        setText('rp-req-s', (pf.total_s_required_mva * 1000).toFixed(1));
+        setText('rp-avail-s', (pf.available_s_total_mva * 1000).toFixed(1));
+        setText('rp-margin', pf.capacity_ratio_pct.toFixed(1));
+        var oldSuf = document.getElementById('rp-sufficient');
+        if (oldSuf) {
+            oldSuf.innerHTML = pf.is_pcs_sufficient
+                ? '<span style="color:#16a34a;font-weight:700;">YES \u2713</span>'
+                : '<span style="color:#dc2626;font-weight:700;">NO \u2717</span>';
+        }
 
         // Lead/Lag label
         var llLabel = document.getElementById('rp-lead-lag-label');

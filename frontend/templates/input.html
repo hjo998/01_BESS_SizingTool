@@ -760,6 +760,116 @@
                 Reactive Power Analysis
             </div>
 
+            <!-- Power Flow Equipment Parameters (optional, with defaults) -->
+            <div class="form-section form-section--compact" style="margin-bottom:16px;">
+                <div class="form-section-title" style="cursor:pointer;" onclick="var b=this.parentElement.querySelector('.pf-params-body'); b.style.display = b.style.display === 'none' ? '' : 'none';">
+                    ⚙ Equipment Parameters <span style="font-size:10px;color:#888;font-weight:400;">(click to expand — defaults provided)</span>
+                </div>
+                <div class="pf-params-body" style="display:none;margin-top:8px;">
+
+                    <!-- LV Connection -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">LV Connection (PCS → MVT)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvR">R <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfLvR" value="0.012" min="0" max="1" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvX">X <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfLvX" value="0.018" min="0" max="1" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfLvLen">Length <span class="unit">m</span></label>
+                                <input type="number" id="pfLvLen" value="5" min="0" max="100" step="1" />
+                                <span class="field-hint">Busway length per powerblock</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MVT (Step-up Transformer) -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MVT (Step-up Transformer)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtCapacity">Capacity <span class="unit">MVA</span></label>
+                                <input type="number" id="pfMvtCapacity" value="100" min="1" max="500" step="1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtEff">Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfMvtEff" value="98.9" min="90" max="100" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvtZ">Impedance Z <span class="unit">%</span></label>
+                                <input type="number" id="pfMvtZ" value="6.0" min="0" max="20" step="0.1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MV Collector Line -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MV Collector Line</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvR">R <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfMvR" value="0.115" min="0" max="2" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvX">X <span class="unit">Ω/km</span></label>
+                                <input type="number" id="pfMvX" value="0.125" min="0" max="2" step="0.001" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvLen">Length <span class="unit">km</span></label>
+                                <input type="number" id="pfMvLen" value="2.0" min="0" max="20" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMvVoltage">Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfMvVoltage" value="34.5" min="1" max="100" step="0.5" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MPT (Main Power Transformer) -->
+                    <div style="margin-bottom:12px;">
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">MPT (Main Power Transformer)</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptCapacity">Capacity <span class="unit">MVA</span></label>
+                                <input type="number" id="pfMptCapacity" value="300" min="1" max="1000" step="1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptEff">Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfMptEff" value="99.65" min="90" max="100" step="0.01" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptZ">Impedance Z <span class="unit">%</span></label>
+                                <input type="number" id="pfMptZ" value="14.5" min="0" max="30" step="0.1" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfMptVoltage">HV Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfMptVoltage" value="154" min="10" max="500" step="1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PCS Voltage + Aux TR -->
+                    <div>
+                        <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px;">Other</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div class="form-group form-group--compact">
+                                <label for="pfPcsVoltage">PCS Output Voltage <span class="unit">kV</span></label>
+                                <input type="number" id="pfPcsVoltage" value="0.69" min="0.1" max="10" step="0.01" />
+                            </div>
+                            <div class="form-group form-group--compact">
+                                <label for="pfAuxTrEff">Aux TR Efficiency <span class="unit">%</span></label>
+                                <input type="number" id="pfAuxTrEff" value="98.5" min="90" max="100" step="0.1" />
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
             <!-- Input: Reactive Power Buffer -->
             <div class="form-section form-section--compact" style="margin-bottom:16px;">
                 <div class="form-section-title">Reactive Power Buffer (F5)</div>
@@ -779,106 +889,117 @@
                 </div>
             </div>
 
-            <!-- POI → PCS (Top-Down) -->
-            <div class="form-section form-section--compact">
-                <div class="form-section-title">POI → PCS (Top-Down)</div>
-                <table class="eng-table" style="width:100%;">
-                    <thead>
-                        <tr><th>Level</th><th>P (kW)</th><th>Q (kVAR)</th><th>S (kVA)</th><th>PF</th></tr>
-                    </thead>
-                    <tbody>
-                        <tr><td class="eng-table__label">@ POI (HV)</td>
-                            <td class="eng-table__value" id="rp-poi-p">—</td>
-                            <td class="eng-table__value" id="rp-poi-q">—</td>
-                            <td class="eng-table__value" id="rp-poi-s">—</td>
-                            <td class="eng-table__value" id="rp-poi-pf">—</td></tr>
-                        <tr><td class="eng-table__label">@ MV Bus</td>
-                            <td class="eng-table__value" id="rp-mv-p">—</td>
-                            <td class="eng-table__value" id="rp-mv-q">—</td>
-                            <td class="eng-table__value" id="rp-mv-s">—</td>
-                            <td class="eng-table__value" id="rp-mv-pf">—</td></tr>
-                        <tr><td class="eng-table__label">@ Inverter (PCS)</td>
-                            <td class="eng-table__value" id="rp-inv-p">—</td>
-                            <td class="eng-table__value" id="rp-inv-q">—</td>
-                            <td class="eng-table__value" id="rp-inv-s">—</td>
-                            <td class="eng-table__value" id="rp-inv-pf">—</td></tr>
-                    </tbody>
-                </table>
+            <!-- Power Flow Stages (filled by JS after calculation) -->
+            <div class="form-section form-section--compact" id="pfStagesSection" style="display:none;">
+                <div class="form-section-title">Power Flow — Stage by Stage</div>
+                <div id="pfStagesContainer">
+                    <!-- JS will build staged cards here -->
+                </div>
             </div>
 
-            <!-- PCS Capacity Check -->
-            <div class="form-section form-section--compact" style="margin-top:12px;">
-                <div class="form-section-title">PCS Capacity Check</div>
-                <table class="eng-table" style="width:100%;">
-                    <tbody>
-                        <tr><td class="eng-table__label">Required S (Inverter)</td>
-                            <td class="eng-table__value" id="rp-req-s">—</td><td class="eng-table__unit">kVA</td></tr>
-                        <tr><td class="eng-table__label">Available S (PCS total)</td>
-                            <td class="eng-table__value" id="rp-avail-s">—</td><td class="eng-table__unit">kVA</td></tr>
-                        <tr><td class="eng-table__label">With Buffer (<span id="rp-buf-label">5%</span>)</td>
-                            <td class="eng-table__value" id="rp-req-s-buf">—</td><td class="eng-table__unit">kVA</td></tr>
-                        <tr><td class="eng-table__label">Margin</td>
-                            <td class="eng-table__value" id="rp-margin">—</td><td class="eng-table__unit">%</td></tr>
-                        <tr><td class="eng-table__label">Sufficient?</td>
-                            <td class="eng-table__value" id="rp-sufficient">—</td><td></td></tr>
-                    </tbody>
-                </table>
+            <!-- Hidden legacy elements for backward compat (rp- IDs used by result.html) -->
+            <div style="display:none;">
+                <span id="rp-poi-p">—</span><span id="rp-poi-q">—</span><span id="rp-poi-s">—</span><span id="rp-poi-pf">—</span>
+                <span id="rp-mv-p">—</span><span id="rp-mv-q">—</span><span id="rp-mv-s">—</span><span id="rp-mv-pf">—</span>
+                <span id="rp-inv-p">—</span><span id="rp-inv-q">—</span><span id="rp-inv-s">—</span><span id="rp-inv-pf">—</span>
+                <span id="rp-req-s">—</span><span id="rp-avail-s">—</span><span id="rp-buf-label">5%</span>
+                <span id="rp-req-s-buf">—</span><span id="rp-margin">—</span><span id="rp-sufficient">—</span>
+                <span id="rp-lead-lag-label">Lagging (inductive)</span>
             </div>
         </div>
 
         <!-- VERTICAL DIVIDER -->
         <div class="eff-two-col__divider"></div>
 
-        <!-- RIGHT: Single Line Diagram -->
+        <!-- RIGHT: Summary + Capacity Check -->
         <div class="eff-two-col__right">
             <div class="eff-two-col__header">
-                <span class="eff-two-col__badge eff-two-col__badge--aux">SLD</span>
-                Power Flow Diagram
+                <span class="eff-two-col__badge eff-two-col__badge--aux">SUMMARY</span>
+                Power Flow Result
             </div>
-            <div id="rpDiagram" style="font-family:'SF Mono','Consolas',monospace;font-size:11px;line-height:1.6;background:#f8f9fa;border-radius:8px;padding:16px;white-space:pre;overflow-x:auto;">
-  ┌─────────────┐
-  │    GRID      │
-  └──────┬───────┘
-         │  S=<span id="sld-poi-s">—</span> kVA
-         │  P=<span id="sld-poi-p">—</span> kW
-         │  Q=<span id="sld-poi-q">—</span> kVAR
-         │  PF=<span id="sld-poi-pf">—</span>
-  ┌──────┴───────┐
-  │  HV TR       │  loss: <span id="sld-hv-loss">—</span> kW
-  │  Q_hv: <span id="sld-hv-q">—</span>  │
-  └──────┬───────┘
-         │
-  ═══════╪═══════  POI
-         │
-  ┌──────┴───────┐
-  │  MV Bus      │
-  │  PF=<span id="sld-mv-pf">—</span>    │
-  └──────┬───────┘
-         │  S=<span id="sld-mv-s">—</span> kVA
-         │  P=<span id="sld-mv-p">—</span> kW
-         │  Q=<span id="sld-mv-q">—</span> kVAR
-  ┌──────┴───────┐
-  │  MV TR       │
-  └──────┬───────┘
-         │
-  ┌──────┴───────┐
-  │  PCS/INV     │  <span id="sld-pcs-count">—</span> units
-  │  S=<span id="sld-inv-s">—</span> kVA  │
-  │  Avail: <span id="sld-avail">—</span> │
-  └──────┬───────┘
-         │
-  ┌──────┴───────┐
-  │  BATTERY     │
-  │  <span id="sld-links">—</span> LINKs  │
-  └──────────────┘</div>
 
-            <div style="margin-top:12px;font-size:12px;color:#666;">
-                <strong>Legend:</strong>
-                S = Apparent Power (kVA),
-                P = Active Power (kW),
-                Q = Reactive Power (kVAR),
-                PF = Power Factor.
-                <span id="rp-lead-lag-label" style="font-weight:600;color:var(--color-primary);">Lagging (inductive)</span>
+            <!-- System Efficiency big display -->
+            <div id="pfSummarySection" style="display:none;">
+                <div style="text-align:center;padding:16px 0;margin-bottom:12px;">
+                    <div style="font-size:42px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
+                        <span id="pf-sys-eff">—</span>%
+                    </div>
+                    <div style="font-size:12px;color:var(--color-text-muted);">System Efficiency (PCS → POI)</div>
+                </div>
+
+                <!-- SVG Single Line Diagram -->
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">Single Line Diagram</div>
+                    <div id="pfSldContainer" style="background:#f8fafc;border-radius:8px;padding:8px;border:1px solid #e2e8f0;position:relative;overflow:visible;">
+                        <svg id="pfSldSvg" width="100%" height="180" viewBox="0 0 460 180"></svg>
+                        <div id="pfSldTooltip" style="display:none;position:absolute;z-index:100;background:#1e293b;color:#fff;padding:8px 12px;border-radius:8px;font-size:11px;font-family:'SF Mono','Consolas',monospace;line-height:1.6;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.2);white-space:nowrap;"></div>
+                    </div>
+                </div>
+
+                <!-- Loss Waterfall -->
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:6px;">Power Loss Waterfall</div>
+                    <div id="pfWaterfallContainer" style="font-size:11px;"></div>
+                </div>
+
+                <!-- Total losses -->
+                <table class="eng-table" style="width:100%;margin-bottom:12px;">
+                    <tbody>
+                        <tr><td class="eng-table__label">Total P Loss</td>
+                            <td class="eng-table__value" id="pf-total-p-loss">—</td><td class="eng-table__unit">MW</td></tr>
+                        <tr><td class="eng-table__label">Total Q Consumed</td>
+                            <td class="eng-table__value" id="pf-total-q-loss">—</td><td class="eng-table__unit">MVAr</td></tr>
+                        <tr><td class="eng-table__label">Aux at MV Bus</td>
+                            <td class="eng-table__value" id="pf-aux-mv">—</td><td class="eng-table__unit">MW</td></tr>
+                        <tr><td class="eng-table__label">Direction</td>
+                            <td class="eng-table__value" id="pf-direction">—</td><td></td></tr>
+                        <tr><td class="eng-table__label">Mode</td>
+                            <td class="eng-table__value" id="pf-mode">—</td><td></td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Capacity Check -->
+                <div class="form-section form-section--compact">
+                    <div class="form-section-title">PCS Capacity Check</div>
+                    <table class="eng-table" style="width:100%;">
+                        <tbody>
+                            <tr><td class="eng-table__label">Required S (PCS)</td>
+                                <td class="eng-table__value" id="pf-req-s">—</td><td class="eng-table__unit">MVA</td></tr>
+                            <tr><td class="eng-table__label">Available S (Nameplate)</td>
+                                <td class="eng-table__value" id="pf-avail-s">—</td><td class="eng-table__unit">MVA</td></tr>
+                            <tr><td class="eng-table__label">Capacity Ratio</td>
+                                <td class="eng-table__value" id="pf-cap-ratio" style="font-weight:700;">—</td><td class="eng-table__unit">%</td></tr>
+                            <tr><td class="eng-table__label">Sufficient?</td>
+                                <td class="eng-table__value" id="pf-sufficient">—</td><td></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Key reference points -->
+                <div class="form-section form-section--compact" style="margin-top:12px;">
+                    <div class="form-section-title">Reference Points</div>
+                    <table class="eng-table" style="width:100%;font-size:11px;">
+                        <thead>
+                            <tr><th>Level</th><th>P (MW)</th><th>Q (MVAr)</th><th>S (MVA)</th><th>PF</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr style="font-weight:700;"><td>@ POI</td>
+                                <td id="pf-ref-poi-p">—</td><td id="pf-ref-poi-q">—</td>
+                                <td id="pf-ref-poi-s">—</td><td id="pf-ref-poi-pf">—</td></tr>
+                            <tr><td>@ MV Bus</td>
+                                <td id="pf-ref-mv-p">—</td><td id="pf-ref-mv-q">—</td>
+                                <td id="pf-ref-mv-s">—</td><td id="pf-ref-mv-pf">—</td></tr>
+                            <tr><td>@ PCS Out</td>
+                                <td id="pf-ref-pcs-p">—</td><td id="pf-ref-pcs-q">—</td>
+                                <td id="pf-ref-pcs-s">—</td><td id="pf-ref-pcs-pf">—</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Placeholder before calculation -->
+            <div id="pfPlaceholder" style="text-align:center;padding:40px 0;color:#aaa;">
+                Run calculation to see Power Flow results
             </div>
         </div>
     </div>
