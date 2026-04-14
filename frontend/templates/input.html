@@ -752,13 +752,9 @@
      TAB 5 — Reactive Power
      ═══════════════════════════════════════════════════════════ -->
 <div class="tab-content" id="tab-reactive">
-    <div class="eff-two-col">
-        <!-- LEFT: S,P,Q Tables -->
-        <div class="eff-two-col__left">
-            <div class="eff-two-col__header">
-                <span class="eff-two-col__badge eff-two-col__badge--main">S,P,Q</span>
-                Reactive Power Analysis
-            </div>
+    <div class="pf-grid">
+        <!-- MAIN AREA (8/12) — Equipment Params + Staged Power Flow Cards -->
+        <div class="pf-grid__main">
 
             <!-- Power Flow Equipment Parameters (optional, with defaults) -->
             <div class="form-section form-section--compact" style="margin-bottom:16px;">
@@ -890,11 +886,18 @@
             </div>
 
             <!-- Power Flow Stages (filled by JS after calculation) -->
-            <div class="form-section form-section--compact" id="pfStagesSection" style="display:none;">
-                <div class="form-section-title">Power Flow — Stage by Stage</div>
-                <div id="pfStagesContainer">
-                    <!-- JS will build staged cards here -->
+            <div id="pfStagesSection" style="display:none;">
+                <div class="form-section form-section--compact">
+                    <div class="form-section-title">Power Flow — Stage by Stage</div>
+                    <div id="pfStagesContainer">
+                        <!-- JS will build staged cards here -->
+                    </div>
                 </div>
+            </div>
+
+            <!-- Placeholder before calculation -->
+            <div id="pfStagesPlaceholder" style="text-align:center;padding:60px 0;color:#aaa;font-size:14px;">
+                Click <strong>Calculate</strong> to see Power Flow stages
             </div>
 
             <!-- Hidden legacy elements for backward compat (rp- IDs used by result.html) -->
@@ -908,18 +911,11 @@
             </div>
         </div>
 
-        <!-- VERTICAL DIVIDER -->
-        <div class="eff-two-col__divider"></div>
+        <!-- SIDEBAR (4/12) — Summary + SLD + Waterfall -->
+        <div class="pf-grid__sidebar">
 
-        <!-- RIGHT: Summary + Capacity Check -->
-        <div class="eff-two-col__right">
-            <div class="eff-two-col__header">
-                <span class="eff-two-col__badge eff-two-col__badge--aux">SUMMARY</span>
-                Power Flow Result
-            </div>
-
-            <!-- System Efficiency big display -->
             <div id="pfSummarySection" style="display:none;">
+                <!-- System Efficiency big display -->
                 <div style="text-align:center;padding:16px 0;margin-bottom:12px;">
                     <div style="font-size:42px;font-weight:800;color:var(--color-primary);font-family:var(--font-mono);">
                         <span id="pf-sys-eff">—</span>%

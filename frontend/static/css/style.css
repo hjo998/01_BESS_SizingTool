@@ -846,6 +846,34 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 
 .aux-stage__remove:hover { background: #FFEBEE; color: var(--color-danger); }
 
+/* ── Power Flow Grid Layout (Tab 5) ─────────────────────── */
+.pf-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.pf-grid__main {
+    min-width: 0;  /* prevent grid blowout */
+}
+
+.pf-grid__sidebar {
+    min-width: 0;
+    position: sticky;
+    top: 16px;
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 1024px) {
+    .pf-grid {
+        grid-template-columns: 1fr;
+    }
+    .pf-grid__sidebar {
+        position: static;
+    }
+}
+
 /* ── Efficiency Two-Column Layout ────────────────────────── */
 .eff-two-col {
     display: grid;

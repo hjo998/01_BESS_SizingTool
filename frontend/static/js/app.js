@@ -3059,13 +3059,15 @@
 
         // ── New power_flow display ──
 
-        // Show the new sections, hide placeholder
+        // Show the new sections, hide placeholders
         var stagesSection = document.getElementById('pfStagesSection');
         var summarySection = document.getElementById('pfSummarySection');
         var placeholder = document.getElementById('pfPlaceholder');
+        var stagesPlaceholder = document.getElementById('pfStagesPlaceholder');
         if (stagesSection) stagesSection.style.display = '';
         if (summarySection) summarySection.style.display = '';
         if (placeholder) placeholder.style.display = 'none';
+        if (stagesPlaceholder) stagesPlaceholder.style.display = 'none';
 
         var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
         var qSign = leadLag === 'leading' ? -1 : 1;
@@ -3105,27 +3107,62 @@
         stages.forEach(function (s, idx) {
             var color = stageColors[s.name] || '#888';
             var label = stageLabels[s.name] || s.name;
+            var isPOI = s.name === 'POI';
+            var isPCS = s.name === 'PCS_OUTPUT';
+            var isLV = s.name === 'LV_LINE';
 
             var card = document.createElement('div');
-            card.style.cssText = 'border-left:4px solid ' + color + ';background:#fff;border-radius:8px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05);';
 
-            var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-                + '<span style="font-size:10px;font-weight:800;text-transform:uppercase;color:' + color + ';">' + label + '</span>'
-                + '<span style="font-size:9px;color:#999;font-family:monospace;">' + s.voltage_kv.toFixed(1) + ' kV</span>'
+            // Card styling: POI gets dark theme, PCS gets emphasized, others get spacious default
+            if (isPOI) {
+                card.style.cssText = 'border-left:6px solid #10b981;background:#1e293b;color:#fff;border-radius:20px;padding:24px 28px;margin-bottom:10px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            } else if (isPCS) {
+                card.style.cssText = 'border-left:6px solid #eab308;background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:10px;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
+            } else {
+                card.style.cssText = 'border-left:6px solid ' + color + ';background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);';
+            }
+
+            // Text colors for dark (POI) vs light cards
+            var labelColor = isPOI ? '#34d399' : color;
+            var voltColor = isPOI ? '#94a3b8' : '#999';
+            var dimColor = isPOI ? '#94a3b8' : '#888';
+            var pColor = isPOI ? '#60a5fa' : '#2563eb';
+            var qColor = isPOI ? '#a78bfa' : '#7c3aed';
+            var valColor = isPOI ? '#fff' : 'inherit';
+            var unitColor = isPOI ? '#64748b' : '#888';
+            var valSize = isPOI ? '24px' : '18px';
+
+            var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+                + '<span style="font-size:12px;font-weight:800;text-transform:uppercase;color:' + labelColor + ';letter-spacing:0.5px;">' + label + '</span>'
+                + '<span style="font-size:11px;color:' + voltColor + ';font-family:monospace;">' + s.voltage_kv.toFixed(1) + ' kV</span>'
                 + '</div>';
 
-            var grid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px;font-size:11px;">'
-                + '<div><span style="color:#888;font-size:9px;">P</span><br><strong style="color:#2563eb;">' + s.p_mw.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MW</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">Q</span><br><strong style="color:#7c3aed;">' + (s.q_mvar * qSign).toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVAr</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">S</span><br><strong>' + s.s_mva.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVA</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">I</span><br><strong>' + Math.round(s.current_a).toLocaleString() + '</strong> <span style="font-size:9px;color:#888;">A</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">PF</span><br><strong>' + s.pf.toFixed(3) + '</strong></div>'
+            // Build current value — special highlight for LV_LINE
+            var currentHtml;
+            if (isLV && s.current_a > 1000) {
+                currentHtml = '<div><span style="color:' + dimColor + ';font-size:10px;">I</span><br>'
+                    + '<span style="display:inline-block;background:#f97316;color:#fff;padding:2px 8px;border-radius:8px;font-size:' + valSize + ';font-weight:700;">'
+                    + Math.round(s.current_a).toLocaleString() + '</span> <span style="font-size:10px;color:' + unitColor + ';">A</span>'
+                    + '<div style="font-size:9px;color:#f97316;font-weight:600;margin-top:2px;">High Current</div></div>';
+            } else {
+                currentHtml = '<div><span style="color:' + dimColor + ';font-size:10px;">I</span><br>'
+                    + '<strong style="font-size:' + valSize + ';font-weight:700;color:' + valColor + ';">' + Math.round(s.current_a).toLocaleString() + '</strong> <span style="font-size:10px;color:' + unitColor + ';">A</span></div>';
+            }
+
+            var grid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;font-size:13px;">'
+                + '<div><span style="color:' + dimColor + ';font-size:10px;">P</span><br><strong style="font-size:' + valSize + ';font-weight:700;color:' + pColor + ';">' + s.p_mw.toFixed(2) + '</strong> <span style="font-size:10px;color:' + unitColor + ';">MW</span></div>'
+                + '<div><span style="color:' + dimColor + ';font-size:10px;">Q</span><br><strong style="font-size:' + valSize + ';font-weight:700;color:' + qColor + ';">' + (s.q_mvar * qSign).toFixed(2) + '</strong> <span style="font-size:10px;color:' + unitColor + ';">MVAr</span></div>'
+                + '<div><span style="color:' + dimColor + ';font-size:10px;">S</span><br><strong style="font-size:' + valSize + ';font-weight:700;color:' + valColor + ';">' + s.s_mva.toFixed(2) + '</strong> <span style="font-size:10px;color:' + unitColor + ';">MVA</span></div>'
+                + currentHtml
+                + '<div><span style="color:' + dimColor + ';font-size:10px;">PF</span><br><strong style="font-size:' + valSize + ';font-weight:700;color:' + valColor + ';">' + s.pf.toFixed(3) + '</strong></div>'
                 + '</div>';
 
             // Loss row (only if there are losses)
             var lossRow = '';
             if (s.p_loss_mw > 0.0001 || Math.abs(s.q_loss_mvar) > 0.0001) {
-                lossRow = '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f0f0f0;font-size:10px;color:#dc2626;">'
+                var lossBorder = isPOI ? '1px solid #334155' : '1px solid #f0f0f0';
+                var lossColor = isPOI ? '#f87171' : '#dc2626';
+                lossRow = '<div style="margin-top:8px;padding-top:8px;border-top:' + lossBorder + ';font-size:11px;color:' + lossColor + ';">'
                     + '\u25B3P: -' + s.p_loss_mw.toFixed(3) + ' MW'
                     + (Math.abs(s.q_loss_mvar) > 0.0001 ? '&nbsp;&nbsp;\u25B3Q: -' + s.q_loss_mvar.toFixed(3) + ' MVAr' : '')
                     + '</div>';
@@ -3137,7 +3174,7 @@
             // Arrow between stages (except after last)
             if (idx < stages.length - 1) {
                 var arrow = document.createElement('div');
-                arrow.style.cssText = 'text-align:center;color:#ccc;font-size:14px;line-height:1;margin:2px 0;';
+                arrow.style.cssText = 'text-align:center;color:#cbd5e1;font-size:18px;line-height:1;margin:4px 0;';
                 arrow.innerHTML = '\u2193';
                 container.appendChild(arrow);
             }
