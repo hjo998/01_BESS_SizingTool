@@ -2765,14 +2765,13 @@
         var byName = {};
         stages.forEach(function(s) { byName[s.name] = s; });
 
-        // Fixed viewBox — SVG scales responsively via width="100%"
-        var W = 900, H = 280;
-        // viewBox is set in HTML; ensure it matches
+        // Fixed viewBox — smaller = elements appear larger relative to container
+        var W = 600, H = 200;
         svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-        var nodeY = 100;
-        var nodeW = 72, nodeH = 44;
-        var margin = 55;
+        var nodeY = 60;
+        var nodeW = 52, nodeH = 34;
+        var margin = 40;
         var spacing = (W - 2 * margin) / 6;  // 7 nodes, 6 gaps
 
         // Node positions (x centers) - dynamically spaced
