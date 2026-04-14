@@ -149,8 +149,8 @@
   "no_of_links": {
     "name": "Number of LINKs",
     "unit": "EA",
-    "description": "Total battery LINK modules. Each LINK is the smallest deployable battery unit.",
-    "formula": "no_of_pcs × links_per_pcs (or manual link_override)"
+    "description": "Total battery LINK modules. Sized to meet required energy at oversizing year after retention degradation.",
+    "formula": "1. req_bol = req_poi / retention(oversizing_yr)\n2. req_dc = req_bol / total_eff\n3. links = ceil(req_dc / nameplate)\n4. Round up to links_per_pcs multiple\n5. Iterate until converged"
   },
   "links_per_pcs": {
     "name": "LINKs per PCS",
@@ -203,8 +203,8 @@
   "cp_rate": {
     "name": "CP Rate",
     "unit": "",
-    "description": "C/P Rate — ratio of required power to installed DC energy. Determines retention curve lookup.",
-    "formula": "req_power_dc / installation_energy_dc"
+    "description": "C/P Rate — ratio of required power to installed DC energy. Affects retention curve lookup and SOC range.",
+    "formula": "req_power_dc / (no_of_links × nameplate_per_link)"
   },
 
   "total_bat_poi_eff": {
@@ -222,8 +222,8 @@
   "system_rte": {
     "name": "System RTE",
     "unit": "%",
-    "description": "Round-Trip Efficiency — ratio of energy out to energy in for full charge-discharge cycle",
-    "formula": "discharge_eff × charge_eff × battery_dc_rte"
+    "description": "Round-Trip Efficiency at POI. Includes charge + discharge path losses and battery DC RTE. Yearly degradation tracked.",
+    "formula": "RTE@ref = chain_eff² × dc_rte(year)\nWith aux: energy balance including rest-period aux consumption"
   },
 
   "retention_pct": {

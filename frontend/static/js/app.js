@@ -2765,20 +2765,24 @@
         var byName = {};
         stages.forEach(function(s) { byName[s.name] = s; });
 
-        // Layout constants
-        var W = 460, H = 180;
-        var nodeY = 70;  // main bus y position
-        var nodeW = 48, nodeH = 32;
+        // Fixed viewBox — smaller = elements appear larger relative to container
+        var W = 600, H = 200;
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
 
-        // Node positions (x centers) - 7 main nodes + 1 aux branch
+        var nodeY = 60;
+        var nodeW = 52, nodeH = 34;
+        var margin = 40;
+        var spacing = (W - 2 * margin) / 6;  // 7 nodes, 6 gaps
+
+        // Node positions (x centers) - dynamically spaced
         var nodes = [
-            { key: 'PCS_OUTPUT', x: 35,  label: 'PCS',   color: '#eab308', symbol: 'inverter' },
-            { key: 'LV_LINE',    x: 100, label: 'LV',    color: '#f97316', symbol: 'cable' },
-            { key: 'MVT',        x: 155, label: 'MVT',   color: '#3b82f6', symbol: 'transformer' },
-            { key: 'MV_BUS',     x: 225, label: 'MV Bus', color: '#8b5cf6', symbol: 'bus' },
-            { key: 'MV_LINE',    x: 295, label: 'MV Ln', color: '#6366f1', symbol: 'cable' },
-            { key: 'MPT',        x: 355, label: 'MPT',   color: '#3b82f6', symbol: 'transformer' },
-            { key: 'POI',        x: 425, label: 'POI',   color: '#10b981', symbol: 'grid' }
+            { key: 'PCS_OUTPUT', x: margin,              label: 'PCS',    color: '#eab308', symbol: 'inverter' },
+            { key: 'LV_LINE',    x: margin + spacing,     label: 'LV',     color: '#f97316', symbol: 'cable' },
+            { key: 'MVT',        x: margin + spacing * 2, label: 'MVT',    color: '#3b82f6', symbol: 'transformer' },
+            { key: 'MV_BUS',     x: margin + spacing * 3, label: 'MV Junction', color: '#8b5cf6', symbol: 'bus' },
+            { key: 'MV_LINE',    x: margin + spacing * 4, label: 'MV Ln',  color: '#6366f1', symbol: 'cable' },
+            { key: 'MPT',        x: margin + spacing * 5, label: 'MPT',    color: '#3b82f6', symbol: 'transformer' },
+            { key: 'POI',        x: margin + spacing * 6, label: 'POI',    color: '#10b981', symbol: 'grid' }
         ];
 
         // Helper: create SVG element
@@ -2799,38 +2803,58 @@
         svg.appendChild(el('line', {
             x1: nodes[0].x, y1: nodeY + nodeH / 2,
             x2: nodes[nodes.length - 1].x, y2: nodeY + nodeH / 2,
-            stroke: '#cbd5e1', 'stroke-width': '3'
+            stroke: '#cbd5e1', 'stroke-width': '4'
         }));
 
-        // Draw aux branch (from MV_BUS downward)
+        // Draw aux branch (from MV_BUS downward) — with tooltip
         var auxStage = byName['AUX_BRANCH'];
         var mvBusNode = nodes[3]; // MV_BUS
         if (auxStage && auxStage.p_loss_mw !== 0) {
-            // Vertical line down from MV Bus
-            svg.appendChild(el('line', {
-                x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 16,
-                x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 50,
-                stroke: '#f59e0b', 'stroke-width': '2', 'stroke-dasharray': '4,3'
+            var auxG = el('g', { cursor: 'pointer' });
+            auxG.appendChild(el('line', {
+                x1: mvBusNode.x, y1: nodeY + nodeH / 2 + 22,
+                x2: mvBusNode.x, y2: nodeY + nodeH / 2 + 75,
+                stroke: '#f59e0b', 'stroke-width': '2.5', 'stroke-dasharray': '6,4'
             }));
-            // Aux box
-            svg.appendChild(el('rect', {
-                x: mvBusNode.x - 22, y: nodeY + nodeH / 2 + 50,
-                width: 44, height: 22, rx: 4,
-                fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '1.5'
+            auxG.appendChild(el('rect', {
+                x: mvBusNode.x - 32, y: nodeY + nodeH / 2 + 75,
+                width: 64, height: 30, rx: 6,
+                fill: '#fffbeb', stroke: '#f59e0b', 'stroke-width': '2'
             }));
             var auxText = el('text', {
-                x: mvBusNode.x, y: nodeY + nodeH / 2 + 65,
-                'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#b45309'
+                x: mvBusNode.x, y: nodeY + nodeH / 2 + 95,
+                'text-anchor': 'middle', 'font-size': '13', 'font-weight': '700', fill: '#b45309'
             });
             auxText.textContent = 'AUX';
-            svg.appendChild(auxText);
-            // Aux power label
+            auxG.appendChild(auxText);
             var auxLabel = el('text', {
-                x: mvBusNode.x + 28, y: nodeY + nodeH / 2 + 62,
-                'font-size': '8', fill: '#dc2626'
+                x: mvBusNode.x + 42, y: nodeY + nodeH / 2 + 92,
+                'font-size': '12', 'font-weight': '600', fill: '#dc2626'
             });
-            auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + 'MW';
-            svg.appendChild(auxLabel);
+            auxLabel.textContent = Math.abs(auxStage.p_loss_mw).toFixed(1) + ' MW';
+            auxG.appendChild(auxLabel);
+            // Tooltip for aux
+            auxG.addEventListener('mouseenter', function(e) {
+                if (!tooltip) return;
+                tooltip.innerHTML = '<strong style="color:#f59e0b;">AUX (Auxiliary Load)</strong><br>'
+                    + 'P consumed = ' + Math.abs(auxStage.p_loss_mw).toFixed(3) + ' MW<br>'
+                    + 'P after aux = ' + auxStage.p_mw.toFixed(3) + ' MW<br>'
+                    + 'Q = ' + auxStage.q_mvar.toFixed(3) + ' MVAr<br>'
+                    + 'S = ' + auxStage.s_mva.toFixed(3) + ' MVA<br>'
+                    + 'Branches from MV Bus (' + auxStage.voltage_kv.toFixed(1) + ' kV)';
+                tooltip.style.display = 'block';
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+            auxG.addEventListener('mouseleave', function() { if (tooltip) tooltip.style.display = 'none'; });
+            auxG.addEventListener('mousemove', function(e) {
+                if (!tooltip) return;
+                var rect = document.getElementById('pfSldContainer').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+                tooltip.style.top = (e.clientY - rect.top - 10) + 'px';
+            });
+            svg.appendChild(auxG);
         }
 
         // Draw each node
@@ -2842,52 +2866,49 @@
             var g = el('g', { 'data-stage': node.key, cursor: 'pointer' });
 
             if (node.symbol === 'transformer') {
-                // Transformer: two overlapping circles
-                g.appendChild(el('circle', { cx: x - 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
-                g.appendChild(el('circle', { cx: x + 6, cy: y + nodeH / 2, r: 12, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('circle', { cx: x - 10, cy: y + nodeH / 2, r: 18, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
+                g.appendChild(el('circle', { cx: x + 10, cy: y + nodeH / 2, r: 18, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
             } else if (node.symbol === 'bus') {
-                // Bus: thick horizontal bar
-                g.appendChild(el('rect', { x: x - 20, y: y + nodeH / 2 - 4, width: 40, height: 8, rx: 2, fill: node.color }));
+                g.appendChild(el('rect', { x: x - 28, y: y + nodeH / 2 - 6, width: 56, height: 12, rx: 3, fill: node.color }));
             } else if (node.symbol === 'cable') {
-                // Cable: double line segment (no box)
-                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 - 2, x2: x + 15, y2: y + nodeH / 2 - 2, stroke: node.color, 'stroke-width': '2' }));
-                g.appendChild(el('line', { x1: x - 15, y1: y + nodeH / 2 + 2, x2: x + 15, y2: y + nodeH / 2 + 2, stroke: node.color, 'stroke-width': '2' }));
+                g.appendChild(el('line', { x1: x - 22, y1: y + nodeH / 2 - 3, x2: x + 22, y2: y + nodeH / 2 - 3, stroke: node.color, 'stroke-width': '3' }));
+                g.appendChild(el('line', { x1: x - 22, y1: y + nodeH / 2 + 3, x2: x + 22, y2: y + nodeH / 2 + 3, stroke: node.color, 'stroke-width': '3' }));
             } else {
-                // Default: rounded rect (PCS, POI)
-                g.appendChild(el('rect', { x: x - nodeW / 2, y: y, width: nodeW, height: nodeH, rx: 6, fill: 'white', stroke: node.color, 'stroke-width': '2' }));
-                var sym = el('text', { x: x, y: y + nodeH / 2 + 4, 'text-anchor': 'middle', 'font-size': '11', 'font-weight': '800', fill: node.color });
+                g.appendChild(el('rect', { x: x - nodeW / 2, y: y, width: nodeW, height: nodeH, rx: 8, fill: 'white', stroke: node.color, 'stroke-width': '2.5' }));
+                var sym = el('text', { x: x, y: y + nodeH / 2 + 5, 'text-anchor': 'middle', 'font-size': '16', 'font-weight': '800', fill: node.color });
                 sym.textContent = node.label;
                 g.appendChild(sym);
             }
 
             // Label below
             if (node.symbol === 'transformer' || node.symbol === 'cable' || node.symbol === 'bus') {
-                var lb = el('text', { x: x, y: y + nodeH + 12, 'text-anchor': 'middle', 'font-size': '8', fill: '#64748b', 'font-weight': '600' });
+                var lb = el('text', { x: x, y: y + nodeH + 18, 'text-anchor': 'middle', 'font-size': '13', fill: '#64748b', 'font-weight': '600' });
                 lb.textContent = node.label;
                 g.appendChild(lb);
             }
 
-            // P value above (blue)
-            var pText = el('text', { x: x, y: y - 8, 'text-anchor': 'middle', 'font-size': '9', 'font-weight': '700', fill: '#2563eb' });
+            // P value above (blue, large)
+            var pText = el('text', { x: x, y: y - 12, 'text-anchor': 'middle', 'font-size': '15', 'font-weight': '700', fill: '#2563eb' });
             pText.textContent = stage.p_mw.toFixed(1);
             g.appendChild(pText);
 
-            // Loss below connection (red) - only for stages with losses
+            // Loss below connection (red)
             if (stage.p_loss_mw > 0.001 && node.symbol !== 'bus') {
-                var lossText = el('text', { x: x, y: y + nodeH + 24, 'text-anchor': 'middle', 'font-size': '8', fill: '#dc2626' });
+                var lossText = el('text', { x: x, y: y + nodeH + 34, 'text-anchor': 'middle', 'font-size': '12', fill: '#dc2626' });
                 lossText.textContent = '-' + stage.p_loss_mw.toFixed(2);
                 g.appendChild(lossText);
             }
 
-            // Voltage label (tiny, on connections)
-            var vText = el('text', { x: x, y: y - 20, 'text-anchor': 'middle', 'font-size': '7', fill: '#94a3b8' });
+            // Voltage label
+            var vText = el('text', { x: x, y: y - 28, 'text-anchor': 'middle', 'font-size': '11', fill: '#94a3b8' });
             vText.textContent = stage.voltage_kv.toFixed(1) + 'kV';
             g.appendChild(vText);
 
             // Hover tooltip
             g.addEventListener('mouseenter', function(e) {
                 if (!tooltip) return;
-                tooltip.innerHTML = '<strong style="color:' + node.color + ';">' + node.label + ' (' + node.key + ')</strong><br>'
+                var desc = (node.key === 'MV_BUS') ? '<br><span style="color:#aaa;font-size:10px;">MVT outputs aggregate here. Aux branches off.</span>' : '';
+                tooltip.innerHTML = '<strong style="color:' + node.color + ';">' + node.label + '</strong>' + desc + '<br>'
                     + 'P = ' + stage.p_mw.toFixed(3) + ' MW<br>'
                     + 'Q = ' + stage.q_mvar.toFixed(3) + ' MVAr<br>'
                     + 'S = ' + stage.s_mva.toFixed(3) + ' MVA<br>'
@@ -2915,9 +2936,10 @@
         });
 
         // Direction arrow at bottom
-        var arrowY = H - 15;
-        svg.appendChild(el('line', { x1: 50, y1: arrowY, x2: 410, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1', 'marker-end': 'url(#arrowhead)' }));
-        var arrowLabel = el('text', { x: 230, y: arrowY - 4, 'text-anchor': 'middle', 'font-size': '8', fill: '#94a3b8' });
+        // Direction arrow at TOP of diagram
+        var arrowY = 18;
+        svg.appendChild(el('line', { x1: margin, y1: arrowY, x2: W - margin, y2: arrowY, stroke: '#cbd5e1', 'stroke-width': '1.5', 'marker-end': 'url(#arrowhead)' }));
+        var arrowLabel = el('text', { x: W / 2, y: arrowY - 5, 'text-anchor': 'middle', 'font-size': '11', fill: '#94a3b8' });
         arrowLabel.textContent = 'Power Flow \u2192 (Discharge)';
         svg.appendChild(arrowLabel);
     }
@@ -3048,8 +3070,8 @@
             var suffEl = document.getElementById('rp-sufficient');
             if (suffEl) {
                 suffEl.innerHTML = sufficient
-                    ? '<span style="color:#16a34a;font-weight:700;">YES ✓</span>'
-                    : '<span style="color:#dc2626;font-weight:700;">NO ✗</span>';
+                    ? '<span style="color:#16a34a;font-weight:700;">YES \u2713</span>'
+                    : '<span style="color:#dc2626;font-weight:700;">NO \u2717</span>';
             }
 
             var llLabel = document.getElementById('rp-lead-lag-label');
@@ -3059,114 +3081,78 @@
 
         // ── New power_flow display ──
 
-        // Show the new sections, hide placeholder
-        var stagesSection = document.getElementById('pfStagesSection');
-        var summarySection = document.getElementById('pfSummarySection');
-        var placeholder = document.getElementById('pfPlaceholder');
-        if (stagesSection) stagesSection.style.display = '';
-        if (summarySection) summarySection.style.display = '';
-        if (placeholder) placeholder.style.display = 'none';
+        // Show sections, hide placeholder
+        ['pfSldSection', 'pfStagesSection', 'pfSummarySection', 'pfWaterfallSection'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
+        var ph = document.getElementById('pfStagesPlaceholder');
+        if (ph) ph.style.display = 'none';
 
         var leadLag = document.getElementById('rpLeadLag') ? document.getElementById('rpLeadLag').value : 'lagging';
         var qSign = leadLag === 'leading' ? -1 : 1;
 
-        // --- Build staged cards ---
-        var container = document.getElementById('pfStagesContainer');
-        if (!container) return;
-        container.innerHTML = '';
+        // --- Build stages table ---
+        var tbody = document.getElementById('pfStagesBody');
+        if (tbody) {
+            var rows = '';
+            var stageLabels = {
+                'POI': 'Grid POI', 'MPT': 'Main Power TR (MPT)',
+                'MV_LINE': 'MV Collector Line', 'AUX_BRANCH': 'Aux Branch',
+                'MV_BUS': 'MV Junction (Aux Split)', 'MVT': 'Step-up TR (MVT)',
+                'LV_LINE': 'LV Busway', 'PCS_OUTPUT': 'PCS Output'
+            };
+            var stageColors = {
+                'POI': '#10b981', 'MPT': '#3b82f6', 'MV_LINE': '#6366f1',
+                'AUX_BRANCH': '#f59e0b', 'MV_BUS': '#8b5cf6', 'MVT': '#3b82f6',
+                'LV_LINE': '#f97316', 'PCS_OUTPUT': '#eab308'
+            };
 
-        // Display stages in reverse order (POI at top, PCS at bottom)
-        // to match the "top-down from grid" visual
-        var stages = pf.stages.slice().reverse();
+            // Display in reverse order (POI at top, PCS at bottom)
+            var stages = pf.stages.slice().reverse();
+            stages.forEach(function(s) {
+                var label = stageLabels[s.name] || s.name;
+                var color = stageColors[s.name] || '#888';
+                var isEndpoint = (s.name === 'POI' || s.name === 'PCS_OUTPUT');
+                var hasLoss = s.p_loss_mw > 0.001 || Math.abs(s.q_loss_mvar) > 0.001;
 
-        // Color mapping for stage types
-        var stageColors = {
-            'POI': '#10b981',
-            'MPT': '#3b82f6',
-            'MV_LINE': '#6366f1',
-            'AUX_BRANCH': '#f59e0b',
-            'MV_BUS': '#8b5cf6',
-            'MVT': '#3b82f6',
-            'LV_LINE': '#f97316',
-            'PCS_OUTPUT': '#eab308'
-        };
+                // Row style: endpoints get bold, slightly different bg
+                var rowStyle = isEndpoint
+                    ? 'font-weight:700;background:#f8fafc;'
+                    : '';
 
-        var stageLabels = {
-            'POI': 'Grid POI',
-            'MPT': 'Main Power TR',
-            'MV_LINE': 'MV Collector',
-            'AUX_BRANCH': 'Aux Branch',
-            'MV_BUS': 'MV Bus',
-            'MVT': 'Step-up TR (MVT)',
-            'LV_LINE': 'LV Busway',
-            'PCS_OUTPUT': 'PCS Output'
-        };
-
-        stages.forEach(function (s, idx) {
-            var color = stageColors[s.name] || '#888';
-            var label = stageLabels[s.name] || s.name;
-
-            var card = document.createElement('div');
-            card.style.cssText = 'border-left:4px solid ' + color + ';background:#fff;border-radius:8px;padding:10px 14px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,0.05);';
-
-            var header = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-                + '<span style="font-size:10px;font-weight:800;text-transform:uppercase;color:' + color + ';">' + label + '</span>'
-                + '<span style="font-size:9px;color:#999;font-family:monospace;">' + s.voltage_kv.toFixed(1) + ' kV</span>'
-                + '</div>';
-
-            var grid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px;font-size:11px;">'
-                + '<div><span style="color:#888;font-size:9px;">P</span><br><strong style="color:#2563eb;">' + s.p_mw.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MW</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">Q</span><br><strong style="color:#7c3aed;">' + (s.q_mvar * qSign).toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVAr</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">S</span><br><strong>' + s.s_mva.toFixed(2) + '</strong> <span style="font-size:9px;color:#888;">MVA</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">I</span><br><strong>' + Math.round(s.current_a).toLocaleString() + '</strong> <span style="font-size:9px;color:#888;">A</span></div>'
-                + '<div><span style="color:#888;font-size:9px;">PF</span><br><strong>' + s.pf.toFixed(3) + '</strong></div>'
-                + '</div>';
-
-            // Loss row (only if there are losses)
-            var lossRow = '';
-            if (s.p_loss_mw > 0.0001 || Math.abs(s.q_loss_mvar) > 0.0001) {
-                lossRow = '<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f0f0f0;font-size:10px;color:#dc2626;">'
-                    + '\u25B3P: -' + s.p_loss_mw.toFixed(3) + ' MW'
-                    + (Math.abs(s.q_loss_mvar) > 0.0001 ? '&nbsp;&nbsp;\u25B3Q: -' + s.q_loss_mvar.toFixed(3) + ' MVAr' : '')
-                    + '</div>';
-            }
-
-            card.innerHTML = header + grid + lossRow;
-            container.appendChild(card);
-
-            // Arrow between stages (except after last)
-            if (idx < stages.length - 1) {
-                var arrow = document.createElement('div');
-                arrow.style.cssText = 'text-align:center;color:#ccc;font-size:14px;line-height:1;margin:2px 0;';
-                arrow.innerHTML = '\u2193';
-                container.appendChild(arrow);
-            }
-        });
+                rows += '<tr style="' + rowStyle + '">'
+                    + '<td style="padding:6px 12px;white-space:nowrap;"><span style="display:inline-block;width:4px;height:14px;background:' + color + ';border-radius:2px;margin-right:8px;vertical-align:middle;"></span>' + label + ' <span style="font-size:10px;color:#94a3b8;">' + s.voltage_kv.toFixed(1) + 'kV</span></td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);color:#2563eb;">' + s.p_mw.toFixed(2) + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);color:#7c3aed;">' + (s.q_mvar * qSign).toFixed(2) + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);">' + s.s_mva.toFixed(2) + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);">' + s.pf.toFixed(3) + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);">' + Math.round(s.current_a).toLocaleString() + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);color:' + (hasLoss ? '#dc2626' : '#ccc') + ';">' + (hasLoss ? '-' + s.p_loss_mw.toFixed(3) : '\u2014') + '</td>'
+                    + '<td style="text-align:right;padding:6px 8px;font-family:var(--font-mono);color:' + (Math.abs(s.q_loss_mvar) > 0.001 ? '#dc2626' : '#ccc') + ';">' + (Math.abs(s.q_loss_mvar) > 0.001 ? '-' + s.q_loss_mvar.toFixed(3) : '\u2014') + '</td>'
+                    + '</tr>';
+            });
+            tbody.innerHTML = rows;
+        }
 
         // --- Summary section ---
         setText('pf-sys-eff', pf.system_efficiency_pct.toFixed(1));
-        setText('pf-total-p-loss', pf.total_p_loss_mw.toFixed(3));
-        setText('pf-total-q-loss', pf.total_q_consumed_mvar.toFixed(3));
-        setText('pf-aux-mv', pf.aux_power_at_mv_mw.toFixed(3));
-        setText('pf-direction', pf.direction === 'discharge' ? 'Discharge (Battery\u2192Grid)' : 'Charge (Grid\u2192Battery)');
-        setText('pf-mode', pf.calculation_mode === 'top_down' ? 'Top-down (POI\u2192PCS)' : 'Bottom-up (PCS\u2192POI)');
-
-        // Draw SLD and Waterfall
-        drawSLD(pf);
-        drawLossWaterfall(pf);
-
-        // Capacity check
-        setText('pf-req-s', pf.total_s_required_mva.toFixed(2));
-        setText('pf-avail-s', pf.available_s_total_mva.toFixed(2));
+        setText('pf-total-p-loss', pf.total_p_loss_mw.toFixed(2));
+        setText('pf-total-q-loss', pf.total_q_consumed_mvar.toFixed(2));
+        setText('pf-aux-mv', pf.aux_power_at_mv_mw.toFixed(2));
+        setText('pf-direction', pf.direction === 'discharge' ? 'Discharge' : 'Charge');
+        setText('pf-mode', pf.calculation_mode === 'top_down' ? 'Top-down' : 'Bottom-up');
         setText('pf-cap-ratio', pf.capacity_ratio_pct.toFixed(1));
         var suffEl = document.getElementById('pf-sufficient');
         if (suffEl) {
             suffEl.innerHTML = pf.is_pcs_sufficient
-                ? '<span style="color:#16a34a;font-weight:700;">YES \u2713</span>'
-                : '<span style="color:#dc2626;font-weight:700;">NO \u2717</span>';
+                ? '<span style="color:#16a34a;font-weight:700;">\u2713 Sufficient</span>'
+                : '<span style="color:#dc2626;font-weight:700;">\u2717 Insufficient</span>';
         }
 
-        // Reference points
+        // Hidden reference points (for other pages)
+        setText('pf-req-s', pf.total_s_required_mva.toFixed(2));
+        setText('pf-avail-s', pf.available_s_total_mva.toFixed(2));
         setText('pf-ref-poi-p', pf.p_at_poi.toFixed(2));
         setText('pf-ref-poi-q', (pf.q_at_poi * qSign).toFixed(2));
         setText('pf-ref-poi-s', pf.s_at_poi.toFixed(2));
@@ -3181,25 +3167,19 @@
         var pfPcs = pf.p_at_pcs / pf.s_at_pcs;
         setText('pf-ref-pcs-pf', isNaN(pfPcs) ? '\u2014' : pfPcs.toFixed(4));
 
-        // Also update the old rp- IDs for backward compatibility with result page / other code
-        // that might reference them
-        var rp = result.reactive_power;
-        if (rp) {
-            setText('rp-poi-p', (pf.p_at_poi * 1000).toFixed(1));
-            setText('rp-poi-q', (pf.q_at_poi * qSign * 1000).toFixed(1));
-            setText('rp-poi-s', (pf.s_at_poi * 1000).toFixed(1));
-            setText('rp-poi-pf', pf.pf_at_poi.toFixed(4));
-            setText('rp-mv-p', (pf.p_at_mv * 1000).toFixed(1));
-            setText('rp-mv-q', (pf.q_at_mv * qSign * 1000).toFixed(1));
-            setText('rp-mv-s', (pf.s_at_mv * 1000).toFixed(1));
-            setText('rp-mv-pf', pf.pf_at_mv.toFixed(4));
-            setText('rp-inv-p', (pf.p_at_pcs * 1000).toFixed(1));
-            setText('rp-inv-q', (pf.q_at_pcs * qSign * 1000).toFixed(1));
-            setText('rp-inv-s', (pf.s_at_pcs * 1000).toFixed(1));
-            setText('rp-inv-pf', isNaN(pfPcs) ? '\u2014' : pfPcs.toFixed(4));
-        }
-
-        // Update old capacity check IDs too
+        // Backward compat rp-* IDs
+        setText('rp-poi-p', (pf.p_at_poi * 1000).toFixed(1));
+        setText('rp-poi-q', (pf.q_at_poi * qSign * 1000).toFixed(1));
+        setText('rp-poi-s', (pf.s_at_poi * 1000).toFixed(1));
+        setText('rp-poi-pf', pf.pf_at_poi.toFixed(4));
+        setText('rp-mv-p', (pf.p_at_mv * 1000).toFixed(1));
+        setText('rp-mv-q', (pf.q_at_mv * qSign * 1000).toFixed(1));
+        setText('rp-mv-s', (pf.s_at_mv * 1000).toFixed(1));
+        setText('rp-mv-pf', pf.pf_at_mv.toFixed(4));
+        setText('rp-inv-p', (pf.p_at_pcs * 1000).toFixed(1));
+        setText('rp-inv-q', (pf.q_at_pcs * qSign * 1000).toFixed(1));
+        setText('rp-inv-s', (pf.s_at_pcs * 1000).toFixed(1));
+        setText('rp-inv-pf', isNaN(pfPcs) ? '\u2014' : pfPcs.toFixed(4));
         setText('rp-req-s', (pf.total_s_required_mva * 1000).toFixed(1));
         setText('rp-avail-s', (pf.available_s_total_mva * 1000).toFixed(1));
         setText('rp-margin', pf.capacity_ratio_pct.toFixed(1));
@@ -3210,9 +3190,9 @@
                 : '<span style="color:#dc2626;font-weight:700;">NO \u2717</span>';
         }
 
-        // Lead/Lag label
-        var llLabel = document.getElementById('rp-lead-lag-label');
-        if (llLabel) llLabel.textContent = leadLag === 'leading' ? 'Leading (capacitive)' : 'Lagging (inductive)';
+        // Draw SLD and Waterfall
+        drawSLD(pf);
+        drawLossWaterfall(pf);
     }
 
     // ═══════════════════════════════════════════════════════════

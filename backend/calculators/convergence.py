@@ -78,6 +78,7 @@ class ConvergenceInput:
     rest_soc: str = "Mid"
     measurement_method: str = "Both CP"  # "Both CP", "CPCV/CP", or "Both CPCV"
     link_override: int = 0               # Manual LINK count override (0 = auto)
+    oversizing_year: int = 0             # Year for retention oversizing (0 = no oversizing)
     config: Optional[ConvergenceConfig] = None  # Uses ConvergenceConfig defaults if None
 
 
@@ -114,11 +115,18 @@ def _make_pcs_input(inp: ConvergenceInput) -> PCSSizingInput:
 def run_sizing_pass(
     inp: ConvergenceInput,
     applied_dod: float,
+    oversizing_retention_rate: float = 1.0,
 ) -> tuple:
     """Run one complete sizing pass: efficiency → pcs → battery.
 
     The applied_dod argument overrides inp.base_battery_loss.applied_dod for
     this pass. All other parameters come from inp unchanged.
+
+    Args:
+        inp: Full convergence input parameters.
+        applied_dod: Depth of discharge for this iteration.
+        oversizing_retention_rate: Retention rate at oversizing year (0-1).
+            Default 1.0 means no oversizing adjustment.
 
     Returns:
         (efficiency_result, pcs_result, battery_result)
@@ -153,6 +161,7 @@ def run_sizing_pass(
         links_per_pcs=pcs_result.links_per_pcs,
         aux_power_source=inp.aux_power_source,
         link_override=inp.link_override,
+        oversizing_retention_rate=oversizing_retention_rate,
     )
     bat_result: BatterySizingResult = calculate_battery_sizing(bat_inp)
 
@@ -183,11 +192,75 @@ def calculate_without_convergence(inp: ConvergenceInput) -> ConvergenceResult:
     Runs efficiency → pcs → battery exactly once using the original applied_dod
     from inp.base_battery_loss. No SOC calculation is performed.
 
+    If oversizing_year > 0, performs retention-aware iterative sizing to converge
+    on a stable LINK count that accounts for degradation at the oversizing year.
+
     Returns a ConvergenceResult with converged=True, iterations=1, soc_result=None.
     """
-    eff_result, pcs_result, bat_result = run_sizing_pass(
-        inp, applied_dod=inp.base_battery_loss.applied_dod
-    )
+    oversizing_year = inp.oversizing_year
+    oversizing_retention_rate = 1.0
+    applied_dod = inp.base_battery_loss.applied_dod
+
+    if oversizing_year > 0:
+        # Iteratively converge on LINK count with retention
+        prev_links_history: list = []
+        max_iter = 20
+
+        for _ in range(max_iter):
+            eff_result, pcs_result, bat_result = run_sizing_pass(
+                inp, applied_dod=applied_dod,
+                oversizing_retention_rate=oversizing_retention_rate,
+            )
+
+            # Look up retention for the new CP-rate
+            from .retention import lookup_retention_curve
+            _, retention_curve = lookup_retention_curve(
+                bat_result.cp_rate, inp.product_type, inp.project_life_yr,
+                rest_soc=getattr(inp, 'rest_soc', 'Mid'),
+            )
+            yr_key = oversizing_year
+            if yr_key in retention_curve:
+                oversizing_retention_rate = retention_curve[yr_key] / 100.0
+
+            current_links = bat_result.no_of_links
+
+            # Convergence check: stable LINK count
+            if len(prev_links_history) >= 1 and current_links == prev_links_history[-1]:
+                break
+
+            # Oscillation detection: if current LINK count was seen before
+            if current_links in prev_links_history and len(prev_links_history) >= 2:
+                # Pick the larger value and do a final pass
+                no_of_links = max(set(prev_links_history) | {current_links})
+                eff_result, pcs_result, bat_result = run_sizing_pass(
+                    inp, applied_dod=applied_dod,
+                    oversizing_retention_rate=oversizing_retention_rate,
+                )
+                # Force the larger link count if needed
+                if bat_result.no_of_links < no_of_links:
+                    bat_inp_override = BatterySizingInput(
+                        required_power_poi_mw=inp.required_power_poi_mw,
+                        required_energy_poi_mwh=inp.required_energy_poi_mwh,
+                        total_bat_poi_eff=eff_result.total_bat_poi_eff,
+                        total_battery_loss_factor=eff_result.total_battery_loss_factor,
+                        total_dc_to_aux_eff=eff_result.total_dc_to_aux_eff,
+                        product_type=inp.product_type,
+                        pcs_unit_power_mw=pcs_result.pcs_unit_power_mw,
+                        links_per_pcs=pcs_result.links_per_pcs,
+                        aux_power_source=inp.aux_power_source,
+                        link_override=no_of_links,
+                        oversizing_retention_rate=oversizing_retention_rate,
+                    )
+                    bat_result = calculate_battery_sizing(bat_inp_override)
+                break
+
+            prev_links_history.append(current_links)
+    else:
+        eff_result, pcs_result, bat_result = run_sizing_pass(
+            inp, applied_dod=applied_dod,
+            oversizing_retention_rate=oversizing_retention_rate,
+        )
+
     return ConvergenceResult(
         efficiency_result=eff_result,
         pcs_result=pcs_result,
@@ -238,12 +311,17 @@ def iterative_sizing_with_soc(inp: ConvergenceInput) -> ConvergenceResult:
     cp_rate_history: list = []
     warning = ""
 
+    # Oversizing retention tracking
+    oversizing_year = inp.oversizing_year
+    oversizing_retention_rate = 1.0  # Initial: no retention penalty
+
     # Tracking variables for divergence / structural convergence
     prev_delta = None
     consecutive_divergence = 0
     current_damping = cfg.damping_factor
     prev_no_of_links: Optional[int] = None
     stable_links_count = 0
+    links_history_set: set = set()  # Track oscillation of LINK counts
 
     # Final sub-results (updated each iteration; last good values returned)
     eff_result: Optional[EfficiencyResult] = None
@@ -272,9 +350,25 @@ def iterative_sizing_with_soc(inp: ConvergenceInput) -> ConvergenceResult:
             # SOC calculation failure — keep previous applied_dod, continue
             pass
 
-        # Steps b–e: full sizing pass with current applied_dod
-        eff_result, pcs_result, bat_result = run_sizing_pass(inp, applied_dod)
+        # Steps b–e: full sizing pass with current applied_dod and retention rate
+        eff_result, pcs_result, bat_result = run_sizing_pass(
+            inp, applied_dod, oversizing_retention_rate
+        )
         new_cp_rate = bat_result.cp_rate
+
+        # Step: look up retention for this CP-rate at the oversizing year
+        if oversizing_year > 0:
+            try:
+                from .retention import lookup_retention_curve
+                _, retention_curve = lookup_retention_curve(
+                    new_cp_rate, inp.product_type, inp.project_life_yr,
+                    rest_soc=getattr(inp, 'rest_soc', 'Mid'),
+                )
+                yr_key = oversizing_year
+                if yr_key in retention_curve:
+                    oversizing_retention_rate = retention_curve[yr_key] / 100.0
+            except (ValueError, FileNotFoundError):
+                pass  # Keep previous oversizing_retention_rate
 
         cp_rate_history.append((iteration, new_cp_rate))
 
@@ -309,6 +403,27 @@ def iterative_sizing_with_soc(inp: ConvergenceInput) -> ConvergenceResult:
                 break
         else:
             stable_links_count = 0
+
+        # Oscillation detection for LINK count
+        if current_links in links_history_set and len(links_history_set) >= 2:
+            # Oscillating between values — pick the larger one
+            larger_links = max(links_history_set | {current_links})
+            # Force the larger count via link_override and do a final pass
+            saved_override = inp.link_override
+            try:
+                inp.link_override = larger_links
+                eff_result, pcs_result, bat_result = run_sizing_pass(
+                    inp, applied_dod, oversizing_retention_rate
+                )
+            finally:
+                inp.link_override = saved_override
+            cp_rate = bat_result.cp_rate
+            final_delta = abs_delta
+            converged = True
+            cp_rate_history.append((iteration, bat_result.cp_rate))
+            break
+
+        links_history_set.add(current_links)
         prev_no_of_links = current_links
 
         # Step g: continuous convergence check
