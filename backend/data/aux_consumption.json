@@ -1,22 +1,52 @@
 {
   "JF2 0.25 DC LINK": {
-    "peak_kw": 15.36,
-    "standby_kw": 8.37
+    "sizing_kw": 18.39,
+    "sizing_basis": "Summer 50°C discharge — 커미셔닝 날짜를 특정할 수 없으므로, 운영 중 측정된 최대 소비전력(여름 50°C 방전)으로 보수적 설계. Full load(24.3kW)보다 낮은 값.",
+    "full_load_kw": 24.3,
+    "full_load_kva": 26.4,
+    "full_load_components": {
+      "M-LINK (3EA)": 21.2,
+      "E-Panel": 3.07
+    },
+    "connected_load_current_a": 36,
+    "demand_current_diversity_a": 31.8,
+    "by_temperature": {
+      "-40": { "label": "Winter -40°C (constant)", "charge_kw": 9.81, "discharge_kw": 10.00, "rest_kw": 7.87, "daily_kwh": 205.13 },
+      "-36": { "label": "Winter (Min -40 / Avg -36)", "charge_kw": 9.82, "discharge_kw": 10.13, "rest_kw": 7.92, "daily_kwh": 206.54 },
+      "-26": { "label": "Winter Montreal (Min -30 / Avg -26)", "charge_kw": 9.81, "discharge_kw": 10.18, "rest_kw": 8.03, "daily_kwh": 208.46 },
+      "-16": { "label": "Winter Montreal (Min -20 / Avg -16)", "charge_kw": 9.67, "discharge_kw": 10.41, "rest_kw": 6.65, "daily_kwh": 186.51 },
+      "-6":  { "label": "Winter Montreal (Min -10 / Avg -6)", "charge_kw": 10.03, "discharge_kw": 10.51, "rest_kw": 6.79, "daily_kwh": 190.64 },
+      "4":   { "label": "Winter Montreal (Min 0 / Avg 4)", "charge_kw": 10.61, "discharge_kw": 11.30, "rest_kw": 7.00, "daily_kwh": 199.54 },
+      "25":  { "label": "Moderate (Constant 25°C)", "charge_kw": 13.17, "discharge_kw": 13.06, "rest_kw": 7.72, "daily_kwh": 228.27 },
+      "25h": { "label": "Summer (Max 35 / Avg 25)", "charge_kw": 13.32, "discharge_kw": 14.55, "rest_kw": 7.97, "daily_kwh": 238.80 },
+      "30":  { "label": "Summer (Max 40 / Avg 30)", "charge_kw": 14.57, "discharge_kw": 15.69, "rest_kw": 8.24, "daily_kwh": 252.60 },
+      "35":  { "label": "Summer (Max 45 / Avg 35)", "charge_kw": 15.93, "discharge_kw": 16.97, "rest_kw": 8.77, "daily_kwh": 271.59 },
+      "40":  { "label": "Summer (Max 50 / Avg 40)", "charge_kw": 17.14, "discharge_kw": 18.39, "rest_kw": 9.40, "daily_kwh": 292.14 }
+    },
+    "simulation_note": "1 cycle/day: Rest@SOC30% → 0.25CP Charge(4hr) → Rest@HighSOC(2hr) → 0.25CP Discharge(4hr) → Rest@LowSOC(2hr) → Charge → Rest@SOC30%. Charge 4hr, Discharge 4hr, Rest 16hr."
   },
   "JF2 0.25 AC LINK": {
-    "peak_kw": 25.89,
-    "standby_kw": 13.44
+    "sizing_kw": 25.89,
+    "sizing_basis": "Summer 50°C discharge 기준 (보수적 설계). 상세 온도별 데이터 미확보 — PDF 입수 시 업데이트.",
+    "full_load_kw": null,
+    "by_temperature": {}
   },
   "JF2 0.5 DC LINK": {
-    "peak_kw": 32.4,
-    "standby_kw": 32.4
+    "sizing_kw": 32.4,
+    "sizing_basis": "Summer 50°C discharge 기준 (보수적 설계). 상세 온도별 데이터 미확보 — PDF 입수 시 업데이트.",
+    "full_load_kw": null,
+    "by_temperature": {}
   },
   "JF2 0.5 AC LINK": {
-    "peak_kw": 28.27,
-    "standby_kw": 16.54
+    "sizing_kw": 28.27,
+    "sizing_basis": "Summer 50°C discharge 기준 (보수적 설계). 상세 온도별 데이터 미확보 — PDF 입수 시 업데이트.",
+    "full_load_kw": null,
+    "by_temperature": {}
   },
   "JF3 0.25 DC LINK": {
-    "peak_kw": 10.63,
-    "standby_kw": 6.3
+    "sizing_kw": 10.63,
+    "sizing_basis": "Summer 50°C discharge 기준 (보수적 설계). 상세 온도별 데이터 미확보 — PDF 입수 시 업데이트.",
+    "full_load_kw": null,
+    "by_temperature": {}
   }
 }

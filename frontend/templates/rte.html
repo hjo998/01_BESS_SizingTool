@@ -81,6 +81,19 @@
                     <label for="rteDcRteDecay">Annual Decay (%/yr)</label>
                     <input type="number" id="rteDcRteDecay" value="0.2" min="0" max="2" step="0.01" />
                 </div>
+                <div class="form-group form-group--compact" style="grid-column:1/-1;">
+                    <button type="button" class="btn btn--outline btn--sm" id="btnImportRteArray" style="font-size:11px;">
+                        Import Battery RTE Array (0~20yr)
+                    </button>
+                    <div id="rteArrayInput" style="display:none;margin-top:8px;">
+                        <textarea id="rteArrayText" rows="3" style="width:100%;font-size:11px;font-family:monospace;" placeholder="예: 94.0, 93.8, 93.6, 93.4, ... (연도별 DC RTE %, 콤마/탭 구분)"></textarea>
+                        <div style="display:flex;gap:6px;margin-top:4px;">
+                            <button type="button" class="btn btn--sm btn--primary" id="btnApplyRteArray">적용</button>
+                            <button type="button" class="btn btn--sm btn--outline" id="btnClearRteArray">초기화</button>
+                        </div>
+                        <div id="rteArrayStatus" style="font-size:11px;color:#888;margin-top:4px;"></div>
+                    </div>
+                </div>
                 <div class="form-group form-group--compact">
                     <label for="rteDischargeHr">Discharge Duration (hr)</label>
                     <input type="number" id="rteDischargeHr" value="4.0" min="0.5" max="12" step="0.5" />
@@ -100,17 +113,42 @@
             </div>
         </div>
 
-        <!-- Aux Power (NEW) -->
+        <!-- Aux Power -->
         <div class="form-section form-section--compact" style="margin-top:12px;">
             <div class="form-section-title">Aux Power</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div class="form-group form-group--compact">
-                    <label for="rteAuxAtMv">Aux at MV Bus (MW)</label>
-                    <input type="number" id="rteAuxAtMv" value="0" min="0" max="20" step="0.1" />
+            <div class="form-group form-group--compact">
+                <label for="rteAuxAtMv">Aux at MV Bus (MW)</label>
+                <input type="number" id="rteAuxAtMv" value="0" min="0" max="20" step="0.1" />
+                <span style="font-size:11px;color:#888;">Load from Main Page 버튼으로 자동 입력 가능</span>
+            </div>
+
+            <!-- Temperature-based aux for RTE (charge/discharge split) -->
+            <div style="margin-top:10px;padding:10px 12px;background:#f8f9fa;border-radius:6px;border:1px solid #e0e0e0;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <label style="font-size:12px;font-weight:600;white-space:nowrap;">Aux 온도 조건:</label>
+                    <select id="rteAuxTempSelect" style="font-size:12px;padding:3px 6px;" onchange="onRteAuxTempChange()">
+                        <option value="">— 수동 입력 —</option>
+                    </select>
                 </div>
-                <div class="form-group form-group--compact">
-                    <label for="rteAuxAtPoi">Aux at POI (MW)</label>
-                    <input type="number" id="rteAuxAtPoi" value="0" min="0" max="20" step="0.1" />
+                <div id="rteAuxTempInfo" style="display:none;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+                        <div style="background:#fff;border-radius:4px;padding:8px;text-align:center;">
+                            <div style="color:#888;font-size:10px;">Charge Aux</div>
+                            <div style="font-weight:600;color:#1976d2;" id="rteAuxChargeKw">—</div>
+                            <div style="color:#888;font-size:10px;">kW/LINK</div>
+                        </div>
+                        <div style="background:#fff;border-radius:4px;padding:8px;text-align:center;">
+                            <div style="color:#888;font-size:10px;">Discharge Aux</div>
+                            <div style="font-weight:600;color:#c62828;" id="rteAuxDischargeKw">—</div>
+                            <div style="color:#888;font-size:10px;">kW/LINK</div>
+                        </div>
+                        <div style="background:#fff;border-radius:4px;padding:8px;text-align:center;">
+                            <div style="color:#888;font-size:10px;">Rest Aux</div>
+                            <div style="font-weight:600;color:#666;" id="rteAuxRestKw">—</div>
+                            <div style="color:#888;font-size:10px;">kW/LINK</div>
+                        </div>
+                    </div>
+                    <div style="font-size:10px;color:#888;margin-top:6px;">↑ 선택한 온도의 Charge/Discharge aux가 RTE 계산에 적용됩니다.</div>
                 </div>
             </div>
         </div>
@@ -298,7 +336,7 @@
 
         // Fill aux power from power_flow
         if (pf.aux_power_at_mv_mw != null) document.getElementById('rteAuxAtMv').value = parseFloat(pf.aux_power_at_mv_mw).toFixed(2);
-        if (pf.aux_power_at_poi_mw != null) document.getElementById('rteAuxAtPoi').value = parseFloat(pf.aux_power_at_poi_mw).toFixed(2);
+        // Aux at POI removed (Item #23)
 
         // Fill from summary
         if (sum.duration_hours != null) document.getElementById('rteDischargeHr').value = sum.duration_hours;
@@ -349,7 +387,7 @@
         // Fill aux if available
         var pf = inp.power_flow || {};
         if (pf.aux_power_at_mv_mw != null) document.getElementById('rteAuxAtMv').value = parseFloat(pf.aux_power_at_mv_mw).toFixed(2);
-        if (pf.aux_power_at_poi_mw != null) document.getElementById('rteAuxAtPoi').value = parseFloat(pf.aux_power_at_poi_mw).toFixed(2);
+        // Aux at POI removed (Item #23)
 
         // Fill summary fields
         var sum = inp.summary || {};
@@ -378,13 +416,39 @@
         var chain_to_mv  = dcCab * pcs * lvCab * mvTr * mvAc;
         var chain_to_poi = chain_to_mv * hvTr * hvAc;
 
-        // Build DC RTE array from start + annual decay
-        var dcRteStart = parseFloat(document.getElementById('rteDcRteStart').value) / 100 || 0.94;
-        var dcRteDecay = parseFloat(document.getElementById('rteDcRteDecay').value) / 100 || 0.002;
+        // Build DC RTE array: use imported array if available, else linear decay
         var years = parseInt(document.getElementById('rteProjectYears').value) || 20;
         var dcRteArray = [];
-        for (var y = 0; y <= years; y++) {
-            dcRteArray.push(Math.max(dcRteStart - dcRteDecay * y, 0.5));
+        if (window._importedRteArray && window._importedRteArray.length > 0) {
+            for (var y = 0; y <= years; y++) {
+                dcRteArray.push(y < window._importedRteArray.length ? window._importedRteArray[y] : window._importedRteArray[window._importedRteArray.length - 1]);
+            }
+        } else {
+            var dcRteStart = parseFloat(document.getElementById('rteDcRteStart').value) / 100 || 0.94;
+            var dcRteDecay = parseFloat(document.getElementById('rteDcRteDecay').value) / 100 || 0.002;
+            for (var y = 0; y <= years; y++) {
+                dcRteArray.push(Math.max(dcRteStart - dcRteDecay * y, 0.5));
+            }
+        }
+
+        // Aux power: use temperature-based charge/discharge if selected
+        var auxMvMw = parseFloat(document.getElementById('rteAuxAtMv').value) || 0;
+        var auxChargeMw = auxMvMw;   // default: same for charge and discharge
+        var auxDischargeMw = auxMvMw;
+        var tempSel = document.getElementById('rteAuxTempSelect');
+        if (tempSel && tempSel.value && window._rteAuxTempData && window._rteAuxTempData[tempSel.value]) {
+            var tempData = window._rteAuxTempData[tempSel.value];
+            // Get number of links from session or estimate
+            var numLinks = 1;
+            try {
+                var sp = JSON.parse(sessionStorage.getItem('rte_params') || '{}');
+                numLinks = (sp.no_of_links || sp.num_links || 1);
+            } catch(e) {}
+            if (numLinks < 1) numLinks = 1;
+            auxChargeMw = tempData.charge_kw * numLinks / 1000;
+            auxDischargeMw = tempData.discharge_kw * numLinks / 1000;
+            // Use average of charge+discharge as the MV aux for the existing API
+            auxMvMw = (auxChargeMw + auxDischargeMw) / 2;
         }
 
         var payload = {
@@ -395,8 +459,8 @@
             t_discharge_hr:   parseFloat(document.getElementById('rteDischargeHr').value) || 4.0,
             t_rest_hr:        parseFloat(document.getElementById('rteRestHr').value) || 0.25,
             aux_power_at_pcs_mw: 0,
-            aux_power_at_mv_mw:  parseFloat(document.getElementById('rteAuxAtMv').value)  || 0,
-            aux_power_at_poi_mw: parseFloat(document.getElementById('rteAuxAtPoi').value) || 0,
+            aux_power_at_mv_mw:  auxMvMw,
+            aux_power_at_poi_mw: 0,
             p_rated_at_poi_mw:   parseFloat(document.getElementById('rteRatedPower').value) || 100
         };
 
@@ -484,6 +548,104 @@
     if (hasSession) {
         loadFromSession();
     }
+
+    /* ── Item #22: Battery RTE Array Import ── */
+    window._importedRteArray = null;
+
+    var importBtn = document.getElementById('btnImportRteArray');
+    var arrayPanel = document.getElementById('rteArrayInput');
+    if (importBtn && arrayPanel) {
+        importBtn.addEventListener('click', function () {
+            arrayPanel.style.display = arrayPanel.style.display === 'none' ? '' : 'none';
+        });
+    }
+
+    var applyBtn = document.getElementById('btnApplyRteArray');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function () {
+            var text = (document.getElementById('rteArrayText').value || '').trim();
+            if (!text) return;
+            var vals = text.split(/[,\t\n]+/).map(function (v) { return parseFloat(v.trim()) / 100; }).filter(function (v) { return !isNaN(v) && v > 0; });
+            if (vals.length < 2) {
+                document.getElementById('rteArrayStatus').textContent = '최소 2개 이상의 값이 필요합니다.';
+                return;
+            }
+            window._importedRteArray = vals;
+            document.getElementById('rteArrayStatus').textContent = vals.length + '개 연도 값 적용됨 (Year 0=' + (vals[0]*100).toFixed(1) + '% ~ Year ' + (vals.length-1) + '=' + (vals[vals.length-1]*100).toFixed(1) + '%)';
+            document.getElementById('rteArrayStatus').style.color = '#1a6b5c';
+        });
+    }
+
+    var clearBtn = document.getElementById('btnClearRteArray');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            window._importedRteArray = null;
+            document.getElementById('rteArrayText').value = '';
+            document.getElementById('rteArrayStatus').textContent = '초기화됨 — 선형 감쇠 모델 사용';
+            document.getElementById('rteArrayStatus').style.color = '#888';
+        });
+    }
+
+    /* ── Aux Temperature Selector for RTE ── */
+    window._rteAuxTempData = null; // cached temperature data for selected product
+
+    // Load aux temperature data from products API
+    function loadRteAuxTempOptions() {
+        var productName = sessionStorage.getItem('selected_product') || '';
+        fetch('/api/products')
+            .then(function (r) { return r.ok ? r.json() : {}; })
+            .then(function (data) {
+                var auxCons = data._aux_consumption || {};
+                // Try to find matching product
+                var auxData = auxCons[productName];
+                if (!auxData) {
+                    // Try first matching key
+                    var keys = Object.keys(auxCons);
+                    for (var i = 0; i < keys.length; i++) {
+                        if (auxCons[keys[i]].by_temperature && Object.keys(auxCons[keys[i]].by_temperature).length > 0) {
+                            auxData = auxCons[keys[i]];
+                            break;
+                        }
+                    }
+                }
+                var sel = document.getElementById('rteAuxTempSelect');
+                if (!sel) return;
+                // Clear options except first
+                sel.innerHTML = '<option value="">— 수동 입력 —</option>';
+                if (auxData && auxData.by_temperature) {
+                    window._rteAuxTempData = auxData.by_temperature;
+                    var keys = Object.keys(auxData.by_temperature);
+                    keys.sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+                    keys.forEach(function (k) {
+                        var t = auxData.by_temperature[k];
+                        var opt = document.createElement('option');
+                        opt.value = k;
+                        opt.textContent = t.label;
+                        sel.appendChild(opt);
+                    });
+                }
+            })
+            .catch(function () {});
+    }
+    loadRteAuxTempOptions();
+
+    window.onRteAuxTempChange = function () {
+        var sel = document.getElementById('rteAuxTempSelect');
+        var info = document.getElementById('rteAuxTempInfo');
+        if (!sel || !info) return;
+
+        var key = sel.value;
+        if (!key || !window._rteAuxTempData || !window._rteAuxTempData[key]) {
+            info.style.display = 'none';
+            return;
+        }
+
+        var t = window._rteAuxTempData[key];
+        document.getElementById('rteAuxChargeKw').textContent = t.charge_kw.toFixed(2);
+        document.getElementById('rteAuxDischargeKw').textContent = t.discharge_kw.toFixed(2);
+        document.getElementById('rteAuxRestKw').textContent = t.rest_kw.toFixed(2);
+        info.style.display = '';
+    };
 })();
 </script>
 {% endblock %}

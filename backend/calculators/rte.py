@@ -100,66 +100,145 @@ def _rte_no_aux(chain_eff: float, dc_rte_y: float) -> float:
     return chain_eff ** 2 * dc_rte_y
 
 
-def _rte_with_aux(
-    chain_eff: float,
+def _rte_with_aux_at_mv(
+    chain_dc_to_mv: float,
+    chain_mv_to_poi: float,
     dc_rte_y: float,
     t_disch: float,
     t_rest: float,
-    aux_at_ref: float,
-    p_rated_at_ref: float,
+    aux_at_mv_mw: float,
+    p_rated_at_poi_mw: float,
 ) -> float:
-    """Energy-balance RTE at a reference point including aux power.
+    """Energy-balance RTE at POI, with aux consumed at MV junction.
 
-    During discharge the grid receives energy:
-        E_out = p_rated_at_ref * t_disch
+    Matches the sizing approach: aux branches off at MV, so the energy
+    balance is computed at MV first, then converted to POI.
 
-    During charge the grid must supply energy (derived from the no-aux RTE):
-        E_charge = E_out / rte_no_aux
+    Discharge (Battery → POI):
+        P_mv_out = P_poi / mv_to_poi_eff       (what MV must deliver)
+        P_mv_net = P_mv_out + aux_at_mv         (MV must also feed aux)
+        P_dc_needed = P_mv_net / dc_to_mv_eff   (DC must supply this)
+        E_discharge_at_dc = P_dc_needed × t_disch
 
-    During rest only aux power is consumed:
-        E_rest = aux_at_ref * t_rest
+    Charge (POI → Battery):
+        P_mv_in = P_poi × mv_to_poi_eff         (POI power arriving at MV, charge direction uses same eff)
+        Actually for charge, POI supplies, MV receives:
+        P_mv_from_poi = P_poi_charge × mv_to_poi_eff  — wait this isn't right.
 
-    RTE_with_aux = E_out / (E_charge + E_rest)
+    Simpler energy-balance approach at POI:
+        E_out_poi = P_poi × t_disch
 
-    Parameters
-    ----------
-    chain_eff : float
-        One-way chain efficiency from DC to this reference point.
-    dc_rte_y : float
-        Battery DC RTE for this year.
-    t_disch : float
-        Discharge duration in hours.
-    t_rest : float
-        Rest duration in hours.
-    aux_at_ref : float
-        Aux power at this reference point (MW).
-    p_rated_at_ref : float
-        Rated discharge power at this reference point (MW).
+        During discharge, at MV: need (P_poi/mv_to_poi + aux) from DC side
+        During charge, at MV: need to push (P_poi/mv_to_poi + aux) into DC side
+        So charge at POI:
+            P_mv_charge = P_poi/mv_to_poi + aux (MV must receive this to charge battery + feed aux)
+            P_poi_charge = P_mv_charge / mv_to_poi (POI must supply more to reach MV)
+                         = (P_poi/mv_to_poi + aux) / mv_to_poi
+
+    Actually, let's use a clean MV-centric energy balance:
+
+        E_out @MV  = P_mv_rated × t_disch
+            where P_mv_rated = P_poi / mv_to_poi_eff
+
+        E_in @MV   = E_out_mv / (dc_to_mv² × dc_rte)
+            (round-trip through DC→MV→DC, pure chain without aux)
+
+        During discharge: aux consumes aux_mw × t_disch at MV
+        During charge:    aux consumes aux_mw × t_charge at MV
+        During rest:      aux consumes aux_mw × t_rest at MV
+
+        t_charge ≈ t_disch / dc_rte (charging takes longer)
+
+        Total aux energy @MV = aux_mw × (t_disch + t_charge + t_rest)
+
+    But what goes to POI:
+        E_out_poi = (P_mv_rated - aux_mw) × mv_to_poi × t_disch
+                  ... no, POI gets P_poi. The aux is subtracted before POI.
+
+    Let me just use the straightforward approach:
+
+    Discharge path:
+        DC delivers: P_dc × t_disch
+        At MV: P_dc × dc_to_mv - aux  →  then × mv_to_poi = P_poi
+        So: P_poi = (P_dc × dc_to_mv - aux) × mv_to_poi
+
+    Charge path:
+        POI supplies: P_poi_in
+        At MV: P_poi_in / mv_to_poi  (arriving at MV from POI)
+        But aux also needs feeding: MV net to DC = P_poi_in/mv_to_poi - aux
+        Into DC: (P_poi_in/mv_to_poi - aux) × dc_to_mv
+        To store 1 unit of DC energy, charge must equal discharge/dc_rte
+
+    This is getting complex. Use the simple, correct formula:
+
+        E_out_poi = P_poi × t_disch
+
+        E_in_poi = ?
+        At MV during charge: need to store E_dc = E_out_poi / (dc_to_mv × mv_to_poi × battery_loss)
+                            but battery_loss here = dc_rte (round-trip at DC level)
+        Hmm, let me think differently.
+
+    Clean approach: compute everything at MV, then convert to POI at the end.
     """
-    rte_base = _rte_no_aux(chain_eff, dc_rte_y)
-
-    # If aux is zero or negligible, fall back to the simple formula.
-    if aux_at_ref <= 0 or p_rated_at_ref <= 0:
-        return rte_base
-
-    e_out = p_rated_at_ref * t_disch
-    if e_out <= 0:
+    if chain_dc_to_mv <= 0 or chain_mv_to_poi <= 0 or dc_rte_y <= 0:
         return 0.0
 
-    # Charge energy: derived from the "no aux" RTE relationship.
-    # E_charge = E_out / rte_no_aux  (i.e. what the grid must supply)
-    if rte_base <= 0:
+    rte_no_aux = (chain_dc_to_mv * chain_mv_to_poi) ** 2 * dc_rte_y
+
+    if aux_at_mv_mw <= 0 or p_rated_at_poi_mw <= 0:
+        return rte_no_aux
+
+    # --- MV-centric energy balance ---
+    # Rated power at MV = POI power / MV→POI efficiency
+    p_mv = p_rated_at_poi_mw / chain_mv_to_poi
+
+    # Discharge: MV delivers p_mv to POI path, but aux also draws from MV
+    # So DC must supply: (p_mv + aux) to MV junction
+    # DC power needed = (p_mv + aux) / dc_to_mv_eff
+    p_dc_discharge = (p_mv + aux_at_mv_mw) / chain_dc_to_mv
+
+    # Charge: POI pushes power to MV, MV feeds aux + pushes rest to DC
+    # At MV: power arriving from POI goes to (a) aux and (b) charging DC
+    # DC receives: p_mv_charge × dc_to_mv_eff (MV→DC direction, same efficiency)
+    # To charge the battery, DC must receive p_dc_discharge worth of energy
+    # over charge time, but charge time = t_disch / dc_rte
+    # Actually, energy balance:
+    #   E_stored_dc = p_dc_discharge × t_disch  (this is what DC delivered during discharge)
+    #   To recharge this: E_charge_dc = E_stored_dc / dc_rte
+    #   DC needs to receive: E_charge_dc worth of energy
+    #   At MV: must push E_charge_dc / dc_to_mv_eff into DC + feed aux during charge
+    t_charge = t_disch / dc_rte_y  # charge takes longer than discharge
+
+    e_stored_dc = p_dc_discharge * t_disch
+    e_charge_dc = e_stored_dc / dc_rte_y  # energy needed at DC terminals for recharge
+    e_charge_at_mv = e_charge_dc / chain_dc_to_mv  # energy needed at MV to push into DC
+    e_aux_charge = aux_at_mv_mw * t_charge          # aux during charge
+    e_aux_discharge = aux_at_mv_mw * t_disch         # aux during discharge
+    e_aux_rest = aux_at_mv_mw * t_rest               # aux during rest
+
+    # Total energy input at MV = charge energy to DC + all aux
+    e_in_at_mv = e_charge_at_mv + e_aux_charge + e_aux_rest
+
+    # Convert MV input to POI: E_in_poi = E_in_mv / mv_to_poi_eff
+    e_in_poi = e_in_at_mv / chain_mv_to_poi
+
+    # E_out at POI = P_poi × t_disch
+    # But during discharge, aux also comes from MV, reducing what reaches POI
+    # Actually no: P_poi is what the grid receives. The aux is already accounted
+    # for in p_dc_discharge above. Let me reconsider.
+    #
+    # During discharge:
+    #   DC outputs: p_dc_discharge × dc_to_mv = p_mv + aux  (at MV)
+    #   MV splits: aux goes to aux load, p_mv goes to POI path
+    #   POI receives: p_mv × mv_to_poi = p_rated_at_poi  ← correct, POI gets full rated
+    #
+    # So E_out_poi = p_rated_at_poi × t_disch (the grid gets full power)
+    e_out_poi = p_rated_at_poi_mw * t_disch
+
+    if e_in_poi <= 0:
         return 0.0
-    e_charge = e_out / rte_base
 
-    # Rest energy penalty
-    e_rest = aux_at_ref * t_rest
-
-    total_in = e_charge + e_rest
-    if total_in <= 0:
-        return 0.0
-
-    return e_out / total_in
+    return e_out_poi / e_in_poi
 
 
 def _derive_p_rated(
@@ -274,34 +353,38 @@ def calculate_rte(inp: RTEInput) -> RTEResult:
         rte_mv  = _rte_no_aux(inp.chain_eff_to_mv,  dc_rte_y)
         rte_poi = _rte_no_aux(inp.chain_eff_to_poi, dc_rte_y)
 
-        # --- RTE with aux (energy balance) ---
-        common = dict(dc_rte_y=dc_rte_y,
-                      t_disch=inp.t_discharge_hr,
-                      t_rest=inp.t_rest_hr)
+        # --- RTE with aux (MV-centric energy balance) ---
+        # Aux is consumed at MV junction. This affects all reference points
+        # downstream of MV (i.e., POI). At DC and PCS, aux has no direct impact.
+        total_aux_at_mv = (inp.aux_power_at_mv_mw
+                           + inp.aux_power_at_pcs_mw
+                           + inp.aux_power_at_poi_mw)
 
-        rte_dc_aux  = _rte_with_aux(
-            chain_eff=1.0,
-            aux_at_ref=0.0,
-            p_rated_at_ref=p_dc,
-            **common,
+        # DC and PCS: no aux impact (aux branches off downstream at MV)
+        rte_dc_aux = rte_dc
+        rte_pcs_aux = rte_pcs
+
+        # MV: aux comes off here, use MV-centric balance
+        chain_mv_to_poi = inp.chain_eff_to_poi / inp.chain_eff_to_mv if inp.chain_eff_to_mv > 0 else 1.0
+        rte_mv_aux = _rte_with_aux_at_mv(
+            chain_dc_to_mv=inp.chain_eff_to_mv,
+            chain_mv_to_poi=1.0,  # MV reference point: mv_to_poi = 1
+            dc_rte_y=dc_rte_y,
+            t_disch=inp.t_discharge_hr,
+            t_rest=inp.t_rest_hr,
+            aux_at_mv_mw=total_aux_at_mv,
+            p_rated_at_poi_mw=p_mv,  # "POI" here is MV itself
         )
-        rte_pcs_aux = _rte_with_aux(
-            chain_eff=inp.chain_eff_to_pcs,
-            aux_at_ref=inp.aux_power_at_pcs_mw,
-            p_rated_at_ref=p_pcs,
-            **common,
-        )
-        rte_mv_aux  = _rte_with_aux(
-            chain_eff=inp.chain_eff_to_mv,
-            aux_at_ref=inp.aux_power_at_mv_mw,
-            p_rated_at_ref=p_mv,
-            **common,
-        )
-        rte_poi_aux = _rte_with_aux(
-            chain_eff=inp.chain_eff_to_poi,
-            aux_at_ref=inp.aux_power_at_poi_mw,
-            p_rated_at_ref=p_poi,
-            **common,
+
+        # POI: full chain including MV→POI segment
+        rte_poi_aux = _rte_with_aux_at_mv(
+            chain_dc_to_mv=inp.chain_eff_to_mv,
+            chain_mv_to_poi=chain_mv_to_poi,
+            dc_rte_y=dc_rte_y,
+            t_disch=inp.t_discharge_hr,
+            t_rest=inp.t_rest_hr,
+            aux_at_mv_mw=total_aux_at_mv,
+            p_rated_at_poi_mw=p_poi,
         )
 
         table.append(RTEYearRow(

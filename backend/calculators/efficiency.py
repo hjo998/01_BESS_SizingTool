@@ -61,20 +61,20 @@ def calculate_aux_efficiency(aux_inp: AuxEfficiencyInput, sys_inp: SystemEfficie
     """
     if aux_inp.branching_point == "MV":
         total_aux_eff = aux_inp.aux_tr_lv * aux_inp.aux_line_lv
-        # DC to Aux: DC → PCS → MV TR → MV Cabling → Aux TR
-        # Note: aux_line_lv is NOT included in total_dc_to_aux (separate path segment)
+        # DC to Aux: DC → PCS → LV Cable → MV TR → Aux TR → Aux Line
         total_dc_to_aux = (sys_inp.dc_cabling * sys_inp.pcs_efficiency *
                            sys_inp.lv_cabling * sys_inp.mv_transformer *
-                           sys_inp.mv_ac_cabling * aux_inp.aux_tr_lv)
+                           aux_inp.aux_tr_lv * aux_inp.aux_line_lv)
     else:  # HV
         total_aux_eff = (sys_inp.hv_transformer * sys_inp.mv_ac_cabling *
                          sys_inp.mv_transformer * sys_inp.lv_cabling *
                          aux_inp.aux_tr_lv * aux_inp.aux_line_lv)
-        # DC to Aux: DC → PCS → LV Cable → MV TR → MV Cable → HV TR → Aux TR
+        # DC to Aux: DC → PCS → LV Cable → MV TR → MV Cable → HV TR → Aux TR → Aux Line
         total_dc_to_aux = (sys_inp.dc_cabling * sys_inp.pcs_efficiency *
                            sys_inp.lv_cabling * sys_inp.mv_transformer *
                            sys_inp.mv_ac_cabling *
-                           sys_inp.hv_transformer * aux_inp.aux_tr_lv)
+                           sys_inp.hv_transformer *
+                           aux_inp.aux_tr_lv * aux_inp.aux_line_lv)
 
     return total_aux_eff, total_dc_to_aux
 

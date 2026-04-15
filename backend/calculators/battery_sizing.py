@@ -189,7 +189,8 @@ def calculate_battery_sizing(inp: BatterySizingInput) -> BatterySizingResult:
     duration_bol = dischargeable_energy_poi / inp.required_power_poi_mw
 
     # --- Auxiliary Power ---
-    aux_power_peak_mw = no_of_links * aux["peak_kw"] / 1000
+    aux_sizing_kw = aux.get("sizing_kw") or aux.get("peak_kw", 0)
+    aux_power_peak_mw = no_of_links * aux_sizing_kw / 1000
 
     # --- MVT count (1 MVT per 2 PCS typically) ---
     no_of_mvt = no_of_pcs / 2

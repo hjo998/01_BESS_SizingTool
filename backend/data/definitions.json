@@ -136,8 +136,8 @@
   "total_dc_to_aux_eff": {
     "name": "DC-to-AUX Efficiency",
     "unit": "",
-    "description": "Total efficiency from battery DC terminal to auxiliary load point",
-    "formula": "MV: dc_cabling × pcs × lv_cabling × mv_tr × mv_ac × aux_tr\nHV: adds hv_transformer"
+    "description": "Total efficiency from battery DC terminal to auxiliary load point, including aux transformer and aux line losses",
+    "formula": "MV: dc_cabling × pcs × lv_cabling × mv_tr × aux_tr_lv × aux_line_lv\nHV: dc_cabling × pcs × lv_cabling × mv_tr × mv_ac × hv_tr × aux_tr_lv × aux_line_lv"
   },
 
   "no_of_pcs": {
@@ -170,10 +170,10 @@
     "description": "Medium-voltage transformer count",
     "formula": "Depends on PCS grouping and power rating"
   },
-  "no_of_m10_order": {
-    "name": "M10 Order Quantity",
+  "required_epc_m10_qty": {
+    "name": "Required EPC M10 Qty",
     "unit": "EA",
-    "description": "EPC Power M10 units to order. M10 = 2 PCS slots. M5/M6 are not sold individually, only as part of M10.",
+    "description": "Required EPC Power M10 unit quantity. M10 = 2 PCS slots (M5+M6). M5/M6 are not sold individually, only as part of M10.",
     "formula": "ceil(no_of_pcs / 2). Only for EPC Power M-system."
   },
   "no_of_transformer_blocks": {
@@ -208,16 +208,16 @@
   },
 
   "total_bat_poi_eff": {
-    "name": "Battery-to-POI Efficiency",
+    "name": "Chain Efficiency (Battery-to-POI)",
     "unit": "%",
-    "description": "Total system efficiency from battery DC terminal to POI",
-    "formula": "dc_cabling × pcs × lv_cabling × mv_tr × mv_ac × hv_tr × hv_ac (7 stages)"
+    "description": "Chain efficiency is the product of all 7 one-way efficiency stages from the Battery DC terminal to POI. Each stage represents single-direction loss; for round-trip efficiency, square each stage.",
+    "formula": "η_chain = η_dc × η_pcs × η_lv × η_mv_tr × η_mv_cable × η_hv_tr × η_hv_cable\nStages: DC Cabling → PCS → LV Cabling → MV Transformer → MV AC Cabling → HV Transformer → HV AC Cabling\nRound-trip: η_chain²"
   },
   "total_efficiency": {
     "name": "Total Efficiency",
     "unit": "%",
-    "description": "Combined battery loss and system efficiency",
-    "formula": "total_bat_poi_eff × total_battery_loss_factor"
+    "description": "Combined system efficiency including the 7-stage chain efficiency (Battery-to-POI) and battery-internal losses (DoD, loss factors, MBMS). One-way conversion from nameplate DC energy to deliverable energy at POI.",
+    "formula": "total_bat_poi_eff × total_battery_loss_factor\n= (η_dc × η_pcs × η_lv × η_mv_tr × η_mv_cable × η_hv_tr × η_hv_cable) × (DoD × loss_factors × MBMS)"
   },
   "system_rte": {
     "name": "System RTE",
@@ -308,5 +308,18 @@
     "unit": "°C",
     "description": "Ambient temperature for PCS derating calculation. Higher temperatures reduce PCS output capacity.",
     "formula": "PCS derating applied above 25°C per manufacturer curve"
+  },
+
+  "req_power_dc_mw": {
+    "name": "Required Power at DC",
+    "unit": "MW",
+    "description": "Required power at battery DC terminal, calculated by dividing POI power requirement by chain efficiency.",
+    "formula": "P_DC = P_POI / total_bat_poi_eff\n= Required Power @POI / (η_dc × η_pcs × η_lv × η_mv_tr × η_mv_cable × η_hv_tr × η_hv_cable)"
+  },
+  "derated_power_kva": {
+    "name": "Derated PCS Power",
+    "unit": "kVA",
+    "description": "PCS apparent power after temperature and altitude derating. PCS output is derated when ambient temperature exceeds 25°C or altitude exceeds sea level.",
+    "formula": "S_derated = S_nominal × f_temp(T) × f_alt(h)\nf_temp: temperature derating factor from manufacturer curve\nf_alt: altitude derating factor (typically 1% per 100m above 1000m)"
   }
 }

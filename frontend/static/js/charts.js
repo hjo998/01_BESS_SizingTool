@@ -82,7 +82,7 @@ var BESSCharts = (function () {
         var H = canvas.height;
 
         // Margins
-        var margin = { top: 28, right: 40, bottom: 56, left: 72 };
+        var margin = { top: 48, right: 40, bottom: 56, left: 72 };
         var plotW = W - margin.left - margin.right;
         var plotH = H - margin.top  - margin.bottom;
 
@@ -150,6 +150,18 @@ var BESSCharts = (function () {
         // ── Background ──
         ctx.fillStyle = '#FAFAFA';
         ctx.fillRect(0, 0, W, H);
+
+        // ── Chart Title ──
+        ctx.fillStyle = COLORS.title;
+        ctx.font = 'bold 13px ' + FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(useEnergyMode ? 'Dischargeable Energy at POI (MWh) — Year-by-Year' : 'Capacity Retention (%) — Year-by-Year', W / 2, 6);
+        if (useEnergyMode && requiredEnergyPoi > 0) {
+            ctx.font = '11px ' + FONT;
+            ctx.fillStyle = COLORS.label;
+            ctx.fillText('Required Energy @POI: ' + requiredEnergyPoi.toFixed(1) + ' MWh', W / 2, 22);
+        }
 
         // ── Grid lines ──
         ctx.strokeStyle = COLORS.grid;
@@ -423,8 +435,29 @@ var BESSCharts = (function () {
         ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
     }
 
+    // ── State for toggles ──────────────────────────────────────
+    var _showRequiredLine = true;
+    var _lastDrawArgs = null;
+
+    function toggleRequiredLine(show) {
+        _showRequiredLine = show;
+        if (_lastDrawArgs) {
+            drawRetentionCurve.apply(null, _lastDrawArgs);
+        }
+    }
+
+    // Wrap drawRetentionCurve to save args for redraw
+    var _origDraw = drawRetentionCurve;
+    drawRetentionCurve = function(canvasId, retentionData, requiredEnergyPoi, augMarkers) {
+        _lastDrawArgs = [canvasId, retentionData, requiredEnergyPoi, augMarkers];
+        _origDraw(canvasId, retentionData,
+                  _showRequiredLine ? requiredEnergyPoi : 0,
+                  augMarkers);
+    };
+
     // ── Public API ─────────────────────────────────────────────
     return {
         drawRetentionCurve: drawRetentionCurve,
+        toggleRequiredLine: toggleRequiredLine,
     };
 }());

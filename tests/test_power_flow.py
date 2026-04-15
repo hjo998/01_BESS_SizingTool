@@ -87,7 +87,6 @@ class TestBottomUp:
             mvt_impedance_pct=0.0, mpt_impedance_pct=0.0,
         ))
         assert abs(r.p_at_poi - 10.0) < 1e-6
-        assert abs(r.chain_eff_to_poi - 1.0) < 1e-6
 
     def test_capacity_ratio(self):
         """Capacity ratio = available / required x 100."""

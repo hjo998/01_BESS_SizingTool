@@ -111,10 +111,6 @@ class PowerFlowResult:
     # Aux
     aux_power_at_mv_mw: float    # Aux as seen at MV bus (= aux_power / aux_tr_eff)
 
-    # Derived chain efficiencies (P_at_ref / P_at_pcs)
-    chain_eff_to_mv: float       # From PCS output to MV bus (after aux)
-    chain_eff_to_poi: float      # From PCS output to POI
-
     # PCS Capacity Check
     total_s_required_mva: float   # Required S from all inverters
     available_s_total_mva: float  # num_pcs * pcs_unit_kva / 1000
@@ -382,8 +378,6 @@ def _solve_top_down(inp: PowerFlowInput) -> PowerFlowResult:
                 pf_at_mv=result.pf_at_mv,
                 pf_at_poi=result.pf_at_poi,
                 aux_power_at_mv_mw=result.aux_power_at_mv_mw,
-                chain_eff_to_mv=result.chain_eff_to_mv,
-                chain_eff_to_poi=result.chain_eff_to_poi,
                 total_s_required_mva=result.total_s_required_mva,
                 available_s_total_mva=result.available_s_total_mva,
                 capacity_ratio_pct=result.capacity_ratio_pct,
@@ -433,8 +427,6 @@ def _solve_top_down(inp: PowerFlowInput) -> PowerFlowResult:
         pf_at_mv=result.pf_at_mv,
         pf_at_poi=result.pf_at_poi,
         aux_power_at_mv_mw=result.aux_power_at_mv_mw,
-        chain_eff_to_mv=result.chain_eff_to_mv,
-        chain_eff_to_poi=result.chain_eff_to_poi,
         total_s_required_mva=result.total_s_required_mva,
         available_s_total_mva=result.available_s_total_mva,
         capacity_ratio_pct=result.capacity_ratio_pct,
@@ -704,14 +696,6 @@ def _calculate_bottom_up(inp: PowerFlowInput) -> PowerFlowResult:
     pf_at_mv = _safe_pf(mv_after_aux_p, mv_after_aux_s)
     pf_at_poi = _safe_pf(p_at_poi, s_at_poi)
 
-    # Chain efficiencies
-    if total_pcs_p > 0:
-        chain_eff_to_mv = mv_after_aux_p / total_pcs_p
-        chain_eff_to_poi = p_at_poi / total_pcs_p
-    else:
-        chain_eff_to_mv = 0.0
-        chain_eff_to_poi = 0.0
-
     # PCS capacity check
     total_s_required_mva = total_pcs_s
     available_s_total_mva = inp.num_pcs * inp.pcs_unit_kva / 1000.0
@@ -746,8 +730,6 @@ def _calculate_bottom_up(inp: PowerFlowInput) -> PowerFlowResult:
         pf_at_mv=pf_at_mv,
         pf_at_poi=pf_at_poi,
         aux_power_at_mv_mw=aux_at_mv,
-        chain_eff_to_mv=chain_eff_to_mv,
-        chain_eff_to_poi=chain_eff_to_poi,
         total_s_required_mva=total_s_required_mva,
         available_s_total_mva=available_s_total_mva,
         capacity_ratio_pct=capacity_ratio_pct,

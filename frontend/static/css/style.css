@@ -1228,7 +1228,7 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 /* ── Product Selection Layout ─────────────────────────────── */
 .product-selection-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 3fr 7fr;
     gap: 24px;
     align-items: start;
 }
@@ -1966,6 +1966,30 @@ tbody td:first-child { font-family: var(--font-sans); font-weight: 600; }
 }
 
 .retention-table tbody tr:last-child td.col-year { background: #D4EDEA !important; }
+
+/* ── Retention table group headers (Base vs Augmentation) ── */
+.retention-table__group-row th {
+    padding: 5px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 2px solid rgba(255,255,255,0.3);
+}
+.retention-table__group-base {
+    background: linear-gradient(135deg, #1A6B5C 0%, #2BA89C 100%) !important;
+    color: #fff;
+    border-right: 2px solid #fff;
+}
+.retention-table__group-aug {
+    background: linear-gradient(135deg, #8B4000 0%, #C76100 100%) !important;
+    color: #fff;
+    border-right: 1px solid rgba(255,255,255,0.3);
+}
+.retention-table__group-aug-cumul {
+    background: linear-gradient(135deg, #6B1500 0%, #A84000 100%) !important;
+    color: #fff;
+}
 
 /* ── SOC Bar ── */
 .soc-bar-wrap { margin-bottom: 12px; }

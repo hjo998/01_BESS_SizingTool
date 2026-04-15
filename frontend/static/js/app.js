@@ -299,6 +299,11 @@
         }
     };
 
+    // Load custom defaults from localStorage if saved
+    var customDefaults = null;
+    try { customDefaults = JSON.parse(localStorage.getItem('effCustomDefaults')); } catch (e) {}
+    if (customDefaults) EFF_PRESETS['custom'] = customDefaults;
+
     function initPresets() {
         document.querySelectorAll('.eff-preset-btn').forEach(function (btn) {
             btn.addEventListener('click', function () {
@@ -308,6 +313,78 @@
                 btn.classList.add('active');
             });
         });
+
+        // Edit Defaults button
+        var editBtn = document.getElementById('editDefaultsBtn');
+        if (editBtn) {
+            editBtn.addEventListener('click', function () { showEditDefaultsModal(); });
+        }
+    }
+
+    /* ── Item #3: Edit Defaults Modal ── */
+    function showEditDefaultsModal() {
+        var existing = document.getElementById('editDefaultsModal');
+        if (existing) existing.remove();
+
+        var base = customDefaults || EFF_PRESETS['default'];
+        var fields = [
+            { key: 'hvAcCabling', label: 'HV AC Cabling' },
+            { key: 'hvTransformer', label: 'HV Transformer' },
+            { key: 'mvAcCabling', label: 'MV AC Cabling' },
+            { key: 'mvTransformer', label: 'MV Transformer' },
+            { key: 'lvCabling', label: 'LV Cabling' },
+            { key: 'pcsEfficiency', label: 'PCS Efficiency' },
+            { key: 'dcCabling', label: 'DC Cabling' },
+            { key: 'appliedDod', label: 'Applied DoD' },
+            { key: 'lossFactors', label: 'Loss Factors' },
+            { key: 'mbmsConsumption', label: 'MBMS Consumption' },
+            { key: 'auxTrLv', label: 'Aux TR LV' },
+            { key: 'auxLineLv', label: 'Aux Line LV' },
+        ];
+        var rows = fields.map(function (f) {
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">' +
+                '<label style="font-size:12px;">' + f.label + '</label>' +
+                '<input type="number" step="0.001" min="0" max="1" value="' + (base[f.key] || 0.999) + '" ' +
+                'data-key="' + f.key + '" style="width:80px;font-size:12px;padding:3px 6px;text-align:right;">' +
+                '</div>';
+        }).join('');
+
+        var modal = document.createElement('div');
+        modal.id = 'editDefaultsModal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);';
+        modal.innerHTML =
+            '<div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2);">' +
+            '<h3 style="margin:0 0 16px;font-size:16px;">Edit Default Values</h3>' +
+            '<div id="editDefaultsFields">' + rows + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:16px;">' +
+            '<button id="saveDefaultsBtn" class="btn btn--primary" style="flex:1;">저장</button>' +
+            '<button id="resetDefaultsBtn" class="btn btn--outline" style="flex:1;">초기화</button>' +
+            '<button id="closeDefaultsBtn" class="btn" style="flex:1;">닫기</button>' +
+            '</div></div>';
+        document.body.appendChild(modal);
+
+        document.getElementById('closeDefaultsBtn').onclick = function () { modal.remove(); };
+        modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+
+        document.getElementById('resetDefaultsBtn').onclick = function () {
+            localStorage.removeItem('effCustomDefaults');
+            customDefaults = null;
+            delete EFF_PRESETS['custom'];
+            modal.remove();
+        };
+
+        document.getElementById('saveDefaultsBtn').onclick = function () {
+            var newDefaults = {};
+            modal.querySelectorAll('input[data-key]').forEach(function (inp) {
+                newDefaults[inp.dataset.key] = parseFloat(inp.value) || 0.999;
+            });
+            newDefaults.branchingPoint = base.branchingPoint || 'MV';
+            localStorage.setItem('effCustomDefaults', JSON.stringify(newDefaults));
+            customDefaults = newDefaults;
+            EFF_PRESETS['custom'] = newDefaults;
+            applyPreset('custom');
+            modal.remove();
+        };
     }
 
     function applyPreset(name) {
@@ -468,6 +545,7 @@
 
         // --- Update formula breakdown ---
         updateFormulaBreakdown(dcCab, pcs, lvCab, mvTr, mvAc, hvTr, hvAc, dod, loss, mbms, bp, totalBatPoi, totalBatLoss, totalSystemEff, totalDcToAux);
+
     }
 
     function setEffDisplay(id, text, val, invertColors) {
@@ -953,6 +1031,7 @@
             }
         }
         updateSpecCard();
+        updateMinIncrementInfo();
     }
 
     /** When PCS model changes → populate configuration dropdown */
@@ -1036,6 +1115,8 @@
     /** Show combined Battery + PCS specs in the product spec card */
     function showPcsSpecCard(mfr, model, strings, links, configName) {
         updateSpecCard();
+        updatePcsDeratingInfo();
+        updateMinIncrementInfo();
     }
 
     /** Build the combined spec card from current Battery + PCS selections */
@@ -1058,8 +1139,8 @@
             html += specRow('Product', batSel.value);
             if (batSpecs.nameplate_energy_mwh) html += specRow('Nameplate Energy', batSpecs.nameplate_energy_mwh + ' MWh');
             if (batSpecs.rack_energy_kwh) html += specRow('Rack Energy', batSpecs.rack_energy_kwh + ' kWh');
-            if (batSpecs.module_type && batSpecs.module_type !== 'NA') html += specRow('Module Type', batSpecs.module_type);
-            if (batSpecs.gen) html += specRow('Generation', batSpecs.gen);
+            if (batSpecs.racks_per_link) html += specRow('Racks per LINK', batSpecs.racks_per_link);
+            if (batSpecs.modules_per_rack) html += specRow('Modules per Rack', batSpecs.modules_per_rack);
             html += '</tbody></table>';
         }
 
@@ -1104,6 +1185,62 @@
 
     function specRow(label, value) {
         return '<tr><td>' + escSvg(label) + '</td><td>' + escSvg(String(value)) + '</td></tr>';
+    }
+
+    /* ── Item #18: PCS Derating Display ── */
+    function updatePcsDeratingInfo() {
+        var container = document.getElementById('pcsDeratingContent');
+        var section = document.getElementById('pcsDeratingInfo');
+        if (!container || !section) return;
+
+        var cfgSel = document.getElementById('pcsConfiguration');
+        if (!cfgSel || !cfgSel.value) { section.style.display = 'none'; return; }
+
+        var opt = cfgSel.options[cfgSel.selectedIndex];
+        var model = opt.dataset.model || '';
+
+        // Build derating display
+        var html = '<table class="spec-table" style="font-size:12px;"><tbody>';
+        html += '<tr><td colspan="2" style="font-weight:600;padding:4px 0;">Temperature Derating</td></tr>';
+        var temps = [25, 35, 40, 45, 50];
+        temps.forEach(function(t) {
+            // Use a simple derating model: 100% at <=25, reduces above
+            var factor = t <= 25 ? 1.0 : Math.max(0.7, 1.0 - (t - 25) * 0.012);
+            html += '<tr><td>' + t + '°C</td><td>' + (factor * 100).toFixed(1) + '%</td></tr>';
+        });
+        html += '<tr><td colspan="2" style="font-weight:600;padding:4px 0;">Altitude Derating</td></tr>';
+        var alts = [0, 1000, 2000, 3000];
+        alts.forEach(function(a) {
+            var factor = a <= 1000 ? 1.0 : Math.max(0.8, 1.0 - (a - 1000) * 0.01 / 100);
+            html += '<tr><td>' + a + 'm</td><td>' + (factor * 100).toFixed(1) + '%</td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        section.style.display = '';
+    }
+
+    /* ── Item #19: Min Increment Info ── */
+    function updateMinIncrementInfo() {
+        var section = document.getElementById('minIncrementInfo');
+        if (!section) return;
+
+        var cfgSel = document.getElementById('pcsConfiguration');
+        var batSel = document.getElementById('batteryProductType');
+
+        if (!cfgSel || !cfgSel.value || !batSel || !batSel.value) {
+            section.style.display = 'none';
+            return;
+        }
+
+        var opt = cfgSel.options[cfgSel.selectedIndex];
+        var linksPerPcs = parseInt(opt.dataset.linksPerPcs) || 2;
+        var batSpecs = {};
+        try { batSpecs = JSON.parse(batSel.options[batSel.selectedIndex].dataset.specs || '{}'); } catch (e) {}
+        var racksPerLink = batSpecs.racks_per_link || '?';
+
+        document.getElementById('minIncrBattery').textContent = '1 LINK (= ' + racksPerLink + ' racks)';
+        document.getElementById('minIncrPcs').textContent = linksPerPcs + ' LINK 단위 (links_per_pcs = ' + linksPerPcs + ')';
+        section.style.display = '';
     }
 
     // ══════════════════════════════════════════════════════════
@@ -1962,11 +2099,11 @@
         setText('res-noSkid',          sum.no_of_skid || pcs.no_of_pcs);
         setText('res-linksPerPcs',     pcs.links_per_pcs);
         // F1: M10 order quantity + transformer blocks
-        setText('res-noM10Order',      sum.no_of_m10_order != null ? sum.no_of_m10_order : '—');
+        setText('res-noM10Order',      sum.required_epc_m10_qty != null ? sum.required_epc_m10_qty : '—');
         setText('res-noTransBlocks',   sum.no_of_transformer_blocks != null ? sum.no_of_transformer_blocks : '—');
         // Show/hide M10 row (only relevant for EPC Power M-system)
         var m10Row = document.getElementById('row-m10Order');
-        if (m10Row) m10Row.style.display = sum.no_of_m10_order != null ? '' : 'none';
+        if (m10Row) m10Row.style.display = sum.required_epc_m10_qty != null ? '' : 'none';
 
         // ── Efficiency Summary ──
         setText('res-effBatPoi',  (eff.total_bat_poi_eff * 100).toFixed(2));
@@ -1977,7 +2114,18 @@
 
         // ── Reactive Power ──
         setText('res-apparentPower', rp ? rp.total_apparent_power_poi_kva.toFixed(1) : '—');
-        setText('res-pfMv',          rp ? rp.pf_at_mv.toFixed(4) : '—');
+        // Required S @POI = Required Power / Power Factor
+        var reqPowerMw = parseFloat(document.getElementById('requiredPowerMw')?.value) || 0;
+        var pf = parseFloat(document.getElementById('powerFactor')?.value) || 0.95;
+        setText('res-requiredSpoi', reqPowerMw > 0 ? (reqPowerMw * 1000 / pf).toFixed(1) : '—');
+        // PF at PCS (from power_flow if available, else fallback)
+        var pfPcs = '—';
+        if (result.power_flow && result.power_flow.stages) {
+            var pcsStage = result.power_flow.stages.find(function(s) { return s.name && s.name.indexOf('PCS') !== -1; });
+            if (pcsStage && pcsStage.pf) pfPcs = pcsStage.pf.toFixed(4);
+        }
+        if (pfPcs === '—' && rp && rp.pf_at_mv) pfPcs = rp.pf_at_mv.toFixed(4);
+        setText('res-pfPcs', pfPcs);
         setText('res-availableS',    rp ? rp.available_s_total_kva.toFixed(1) : '—');
         setText('res-gridKvar',      rp ? rp.grid_kvar.toFixed(1) : '—');
         // F2+F5: Update Reactive Power Tab
@@ -1995,132 +2143,34 @@
 
         // Retention Table (with toggle-able intermediate columns + augmentation)
         var tbody = document.getElementById('retentionTableBody');
+        // Save retention data for re-rendering on toggle changes
+        if (result.retention) window._lastRetention = result;
+
         if (tbody && result.retention && result.retention.retention_by_year) {
-            var rows = '';
-            var byYear = result.retention.retention_by_year;
-            // Check which optional columns are visible
-            var showDc = document.getElementById('togColDc') && document.getElementById('togColDc').checked;
-            var showDcAux = document.getElementById('togColDcAux') && document.getElementById('togColDcAux').checked;
-            var showMv = document.getElementById('togColMv') && document.getElementById('togColMv').checked;
-            var showThroughput = document.getElementById('togColThroughput') && document.getElementById('togColThroughput').checked;
-            var dcStyle = showDc ? '' : 'display:none;';
-            var dcAuxStyle = showDcAux ? '' : 'display:none;';
-            var mvStyle = showMv ? '' : 'display:none;';
-            var throughputStyle = showThroughput ? '' : 'display:none;';
-
-            // Annual Energy Throughput: min(Disch@POI, Required Energy) × Operation Days
-            var reqEnergy = parseFloat(result.summary ? result.summary.required_energy_mwh : 0) || 0;
-            var opDays = parseFloat(document.getElementById('operationDaysPerYear') ? document.getElementById('operationDaysPerYear').value : 365) || 365;
-
-            // Detect augmentation: check if retention source contains "augmentation"
+            // Detect augmentation
             var hasAug = result.retention.lookup_source && result.retention.lookup_source.indexOf('augmentation') !== -1;
-            var augStyle = hasAug ? '' : 'display:none;';
+            _retHasAug = hasAug;
 
-            // Show/hide augmentation header columns + wave toggles
-            var augEls = document.querySelectorAll('.colAug');
-            for (var ai = 0; ai < augEls.length; ai++) {
-                augEls[ai].style.display = hasAug ? '' : 'none';
-            }
-
-            // Per-wave details from backend
-            var waveDetails = (hasAug && result.retention.wave_details) ? result.retention.wave_details : null;
             // Determine which waves exist
+            var waveDetails = (hasAug && result.retention.wave_details) ? result.retention.wave_details : null;
             var waveKeys = waveDetails ? Object.keys(waveDetails).sort(function(a,b){return +a - +b;}) : [];
+            _retWavesExist = [false, false, false, false];
+            waveKeys.forEach(function (k) { var idx = parseInt(k); if (idx >= 0 && idx <= 3) _retWavesExist[idx] = true; });
 
-            // Hide wave toggle checkboxes for waves that don't exist
-            for (var wi = 0; wi <= 3; wi++) {
-                var togLabel = document.getElementById('togWave' + wi);
-                if (togLabel) {
-                    var waveExists = hasAug && waveKeys.indexOf(String(wi)) !== -1;
-                    togLabel.parentElement.style.display = waveExists ? '' : 'none';
-                }
+            // Show/hide wave toggle labels (Initial has no toggle; Aug 1/2/3 shown if wave exists)
+            for (var wi = 1; wi <= 3; wi++) {
+                var togLabel = document.getElementById('togWave' + wi + 'Label');
+                if (togLabel) togLabel.style.display = (hasAug && _retWavesExist[wi]) ? '' : 'none';
             }
+            // Show aug separator
+            var augSep = document.querySelector('.ret-toggle-sep');
+            if (augSep) augSep.style.display = hasAug ? '' : 'none';
 
-            // Wave column visibility based on toggle state
-            var waveStyles = {};
-            for (var wi = 0; wi <= 3; wi++) {
-                var togEl = document.getElementById('togWave' + wi);
-                var isChecked = togEl ? togEl.checked : true;
-                var waveExists = waveKeys.indexOf(String(wi)) !== -1;
-                waveStyles[wi] = (hasAug && waveExists && isChecked) ? '' : 'display:none;';
-            }
-
-            Object.keys(byYear).sort(function (a, b) { return +a - +b; }).forEach(function (yr) {
-                var d = byYear[yr];
-                var retLevel = d.retention_pct >= 85 ? 'high' : (d.retention_pct >= 70 ? 'mid' : 'low');
-
-                // Per-wave cells (energy + DC/DC-Aux/MV when toggled + POI)
-                var waveCells = '';
-                for (var wi = 0; wi <= 3; wi++) {
-                    var ws = waveStyles[wi];
-                    if (waveDetails && waveDetails[String(wi)] && waveDetails[String(wi)].by_year && waveDetails[String(wi)].by_year[yr]) {
-                        var wd = waveDetails[String(wi)].by_year[yr];
-                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.energy_mwh.toFixed(3) + '</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colDc col-aug" style="' + ws + (showDc ? '' : 'display:none;') + '">' + (wd.disch_dc_mwh != null ? wd.disch_dc_mwh.toFixed(3) : '—') + '</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colDcAux col-aug" style="' + ws + (showDcAux ? '' : 'display:none;') + '">' + (wd.disch_dc_aux_mwh != null ? wd.disch_dc_aux_mwh.toFixed(3) : '—') + '</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colMv col-aug" style="' + ws + (showMv ? '' : 'display:none;') + '">' + (wd.disch_mv_mwh != null ? wd.disch_mv_mwh.toFixed(3) : '—') + '</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">' + wd.disch_poi_mwh.toFixed(3) + '</td>';
-                    } else {
-                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colDc col-aug" style="' + ws + (showDc ? '' : 'display:none;') + '">—</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colDcAux col-aug" style="' + ws + (showDcAux ? '' : 'display:none;') + '">—</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' colMv col-aug" style="' + ws + (showMv ? '' : 'display:none;') + '">—</td>';
-                        waveCells += '<td class="colAug colWave' + wi + ' col-aug" style="' + ws + '">—</td>';
-                    }
-                }
-
-                // Cumulative columns: show existing + new installation separately in aug year
-                var cumulEnergy = '—';
-                var cumulPoi = '—';
-                if (hasAug) {
-                    // Check if a new wave starts this year — show "existing + new" format
-                    var newWaveEnergy = 0;
-                    var newWavePoi = 0;
-                    for (var nwi = 1; nwi <= 3; nwi++) {
-                        if (waveDetails && waveDetails[String(nwi)] && waveDetails[String(nwi)].start_year == yr) {
-                            var nwd = waveDetails[String(nwi)].by_year[yr];
-                            if (nwd) {
-                                newWaveEnergy += nwd.energy_mwh;
-                                newWavePoi += nwd.disch_poi_mwh;
-                            }
-                        }
-                    }
-                    if (newWaveEnergy > 0) {
-                        var existingEnergy = d.total_energy_mwh - newWaveEnergy;
-                        var existingPoi = d.dischargeable_energy_poi_mwh - newWavePoi;
-                        cumulEnergy = existingEnergy.toFixed(1) + ' + ' + newWaveEnergy.toFixed(1);
-                        cumulPoi = existingPoi.toFixed(1) + ' + ' + newWavePoi.toFixed(1);
-                    } else {
-                        cumulEnergy = d.total_energy_mwh.toFixed(3);
-                        cumulPoi = d.dischargeable_energy_poi_mwh.toFixed(3);
-                    }
-                }
-
-                rows += '<tr>' +
-                    '<td class="col-year">' + yr + '</td>' +
-                    '<td class="col-ret" data-level="' + retLevel + '">' + d.retention_pct.toFixed(1) + '%</td>' +
-                    '<td class="col-num">' + d.total_energy_mwh.toFixed(3) + '</td>' +
-                    '<td class="colDc col-num" style="' + dcStyle + '">' + (d.dischargeable_energy_dc_mwh != null ? d.dischargeable_energy_dc_mwh.toFixed(3) : '—') + '</td>' +
-                    '<td class="colDcAux col-num" style="' + dcAuxStyle + '">' + (d.dischargeable_energy_dc_aux_mwh != null ? d.dischargeable_energy_dc_aux_mwh.toFixed(3) : '—') + '</td>' +
-                    '<td class="colMv col-num" style="' + mvStyle + '">' + (d.dischargeable_energy_mv_mwh != null ? d.dischargeable_energy_mv_mwh.toFixed(3) : '—') + '</td>' +
-                    '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(3) + '</td>' +
-                    '<td class="colThroughput col-num" style="' + throughputStyle + '">' + (Math.min(d.dischargeable_energy_poi_mwh, reqEnergy) * opDays).toFixed(0) + '</td>' +
-                    waveCells +
-                    '<td class="colAug col-aug-total" style="' + augStyle + ';color:#888;">' + cumulEnergy + '</td>' +
-                    '<td class="colAug col-aug-highlight" style="' + augStyle + ';font-weight:700;color:var(--color-primary);font-size:13px;">' + cumulPoi + '</td>' +
-                    '</tr>';
-            });
-            tbody.innerHTML = rows;
+            rebuildRetentionHeaders();
+            rebuildRetentionTbody();
         }
 
-        // Retention Chart — Dischargeable Energy @POI
-        if (result.retention && result.retention.curve && window.BESSCharts) {
-            var augMarkers = collectAugMarkers();
-            var reqEnergyPoi = parseFloat(document.getElementById('requiredEnergyMwh') ?
-                document.getElementById('requiredEnergyMwh').value : 0) || 0;
-            BESSCharts.drawRetentionCurve('retentionChart', result.retention,
-                reqEnergyPoi, augMarkers);
-        }
+        // (Chart drawn inside rebuildRetentionTbody)
 
         // ── SOC & Convergence Display ──
         var socRow = document.getElementById('socConvergenceRow');
@@ -2299,15 +2349,64 @@
                 });
 
                 // Populate augmentation chips from recommendation
+                // Strategy: respect user-entered years, only fill empty slots
                 if (rec.waves && rec.waves.length > 0) {
-                    // Clear existing chips
                     var container = document.getElementById('augCompactWaves');
-                    if (container) container.innerHTML = '';
-                    augChipId = 0;
+                    if (!container) return;
 
-                    rec.waves.forEach(function (w) {
-                        addAugChip(w.year, w.additional_links, w.additional_energy_mwh);
+                    // Collect existing user-entered years
+                    var existingChips = container.querySelectorAll('.aug-chip');
+                    var userYears = [];
+                    existingChips.forEach(function (chip) {
+                        var yearInp = chip.querySelector('input[id^="augYear_"]');
+                        if (yearInp && yearInp.value && yearInp.value.trim() !== '') {
+                            userYears.push({
+                                chipId: chip.id,
+                                year: parseInt(yearInp.value, 10),
+                                yearInput: yearInp,
+                                linksInput: chip.querySelector('input[id^="augLinks_"]'),
+                                energyEl: chip.querySelector('[id^="augEnergyDisplay_"]'),
+                                energyHidden: chip.querySelector('input[id^="augEnergy_"]'),
+                            });
+                        }
                     });
+
+                    if (userYears.length > 0) {
+                        // User has entered years — keep them, update links for matching years
+                        var usedRecWaves = {};
+                        userYears.forEach(function (uc) {
+                            // Find closest recommended wave to this user year
+                            var bestWave = null;
+                            var bestDist = Infinity;
+                            rec.waves.forEach(function (w, wi) {
+                                if (usedRecWaves[wi]) return;
+                                var dist = Math.abs(w.year - uc.year);
+                                if (dist < bestDist) { bestDist = dist; bestWave = wi; }
+                            });
+                            // Update links/energy from recommendation, keep user's year
+                            if (bestWave !== null) {
+                                var rw = rec.waves[bestWave];
+                                usedRecWaves[bestWave] = true;
+                                if (uc.linksInput) uc.linksInput.value = rw.additional_links;
+                                if (uc.energyEl) uc.energyEl.textContent = rw.additional_energy_mwh.toFixed(1);
+                                if (uc.energyHidden) uc.energyHidden.value = rw.additional_energy_mwh;
+                            }
+                        });
+
+                        // Add remaining recommended waves that weren't matched to user chips
+                        rec.waves.forEach(function (w, wi) {
+                            if (!usedRecWaves[wi] && getAugChipCount() < MAX_AUG_WAVES) {
+                                addAugChip(w.year, w.additional_links, w.additional_energy_mwh);
+                            }
+                        });
+                    } else {
+                        // No user entries — fill freely
+                        container.innerHTML = '';
+                        augChipId = 0;
+                        rec.waves.forEach(function (w) {
+                            addAugChip(w.year, w.additional_links, w.additional_energy_mwh);
+                        });
+                    }
                     updateAugAddBtn();
                 }
             })
@@ -2327,12 +2426,216 @@
     };
 
     // Toggle retention table optional columns
-    window.toggleRetCol = function (cls, show) {
-        var cells = document.querySelectorAll('.' + cls);
-        for (var i = 0; i < cells.length; i++) {
-            cells[i].style.display = show ? '' : 'none';
+    /* ══════════════════════════════════════════════════════════
+       RETENTION TABLE HEADER BUILDER
+       Builds both thead rows (group + detail) from scratch
+       whenever any toggle changes. This guarantees colspan ↔
+       column count always matches.
+       ══════════════════════════════════════════════════════════ */
+
+    // Which sub-column toggles are on?
+    function _retToggles() {
+        return {
+            dc:   !!(document.getElementById('togColDc') && document.getElementById('togColDc').checked),
+            dcAux:!!(document.getElementById('togColDcAux') && document.getElementById('togColDcAux').checked),
+            mv:   !!(document.getElementById('togColMv') && document.getElementById('togColMv').checked),
+            tp:   !!(document.getElementById('togColThroughput') && document.getElementById('togColThroughput').checked),
+        };
+    }
+
+    // Which aug waves exist (set by renderRetention) and are toggled on?
+    var _retWavesExist = [false, false, false, false]; // wave 0..3
+    function _waveVisible(wi) {
+        if (!_retWavesExist[wi]) return false;
+        if (wi === 0) return true; // Initial always visible
+        var tog = document.getElementById('togWave' + wi);
+        return tog ? tog.checked : true;
+    }
+    var _retHasAug = false;
+
+    /** Rebuild both header rows to match current toggle state */
+    function rebuildRetentionHeaders() {
+        var groupRow = document.getElementById('retGroupRow');
+        var detailRow = document.getElementById('retDetailRow');
+        if (!groupRow || !detailRow) return;
+
+        var t = _retToggles();
+        var subCols = []; // sub-column keys for DC/DC-Aux/MV within each wave
+        if (t.dc) subCols.push('dc');
+        if (t.dcAux) subCols.push('dcAux');
+        if (t.mv) subCols.push('mv');
+
+        // ── Base columns (always present) ──
+        var baseCount = 4 + subCols.length + (t.tp ? 1 : 0);
+        // Energy + subCols + POI per wave
+        var waveWidth = 2 + subCols.length;
+
+        // ── Row 1: Group header ──
+        var g = '';
+        if (_retHasAug) {
+            g += '<th class="retention-table__group-base" colspan="' + baseCount + '">Base Capacity</th>';
+            // Wave 0 (Initial) — always shown
+            if (_retWavesExist[0]) {
+                g += '<th class="retention-table__group-aug" colspan="' + waveWidth + '">Initial</th>';
+            }
+            for (var wi = 1; wi <= 3; wi++) {
+                if (_waveVisible(wi)) {
+                    g += '<th class="retention-table__group-aug" colspan="' + waveWidth + '">Aug Wave ' + wi + '</th>';
+                }
+            }
+            g += '<th class="retention-table__group-aug-cumul" colspan="2">Cumulative</th>';
+            groupRow.innerHTML = g;
+            groupRow.style.display = '';
+        } else {
+            groupRow.innerHTML = '';
+            groupRow.style.display = 'none';
         }
+
+        // ── Row 2: Detail header ──
+        var subLabel = { dc: '@DC', dcAux: '@DC-Aux', mv: '@MV' };
+        var d = '';
+        // Base
+        d += '<th>Year</th><th>Retention<br>%</th><th>Total<br>Energy<br>(MWh)</th>';
+        subCols.forEach(function (k) {
+            d += '<th>Disch.<br>' + subLabel[k] + '<br>(MWh)</th>';
+        });
+        d += '<th>Disch.<br>@POI<br>(MWh)</th>';
+        if (t.tp) d += '<th>Annual<br>Throughput<br>(MWh)</th>';
+
+        // Waves
+        var waveNames = ['Initial', 'Aug 1', 'Aug 2', 'Aug 3'];
+        for (var wi2 = 0; wi2 <= 3; wi2++) {
+            if (!_waveVisible(wi2)) continue;
+            d += '<th class="col-aug-header">' + waveNames[wi2] + '<br>Energy</th>';
+            subCols.forEach(function (k) {
+                d += '<th class="col-aug-header">' + waveNames[wi2] + '<br>' + subLabel[k] + '</th>';
+            });
+            d += '<th class="col-aug-header">' + waveNames[wi2] + '<br>@POI</th>';
+        }
+
+        // Cumulative
+        if (_retHasAug) {
+            d += '<th class="col-aug-header">Cumul.<br>Total<br>Energy</th>';
+            d += '<th class="col-aug-header col-aug-highlight-hdr">Cumul.<br>Disch.<br>@POI</th>';
+        }
+        detailRow.innerHTML = d;
+    }
+
+    /**
+     * Rebuild tbody rows — only emit columns that are currently visible.
+     * This guarantees td count == th count at all times.
+     */
+    function rebuildRetentionTbody() {
+        var result = window._lastRetention;
+        if (!result || !result.retention || !result.retention.retention_by_year) return;
+        var tbody = document.getElementById('retentionTableBody');
+        if (!tbody) return;
+
+        var byYear = result.retention.retention_by_year;
+        var t = _retToggles();
+        var hasAug = _retHasAug;
+        var waveDetails = (hasAug && result.retention.wave_details) ? result.retention.wave_details : null;
+
+        var reqEnergy = parseFloat(result.summary ? result.summary.required_energy_mwh : 0) || 0;
+        var opDays = parseFloat((document.getElementById('operationDaysPerYear') || {}).value || 365) || 365;
+
+        // Sub-column keys active right now
+        var subKeys = [];
+        if (t.dc) subKeys.push('dc');
+        if (t.dcAux) subKeys.push('dcAux');
+        if (t.mv) subKeys.push('mv');
+
+        var subFieldBase = { dc: 'dischargeable_energy_dc_mwh', dcAux: 'dischargeable_energy_dc_aux_mwh', mv: 'dischargeable_energy_mv_mwh' };
+        var subFieldWave = { dc: 'disch_dc_mwh', dcAux: 'disch_dc_aux_mwh', mv: 'disch_mv_mwh' };
+
+        var rows = '';
+        Object.keys(byYear).sort(function (a, b) { return +a - +b; }).forEach(function (yr) {
+            var d = byYear[yr];
+            var retLevel = d.retention_pct >= 85 ? 'high' : (d.retention_pct >= 70 ? 'mid' : 'low');
+
+            // Base columns
+            rows += '<tr>';
+            rows += '<td class="col-year">' + yr + '</td>';
+            rows += '<td class="col-ret" data-level="' + retLevel + '">' + d.retention_pct.toFixed(1) + '%</td>';
+            rows += '<td class="col-num">' + d.total_energy_mwh.toFixed(3) + '</td>';
+            subKeys.forEach(function (k) {
+                var v = d[subFieldBase[k]];
+                rows += '<td class="col-num">' + (v != null ? v.toFixed(3) : '—') + '</td>';
+            });
+            rows += '<td class="col-num">' + d.dischargeable_energy_poi_mwh.toFixed(3) + '</td>';
+            if (t.tp) {
+                rows += '<td class="col-num">' + (Math.min(d.dischargeable_energy_poi_mwh, reqEnergy) * opDays).toFixed(0) + '</td>';
+            }
+
+            // Wave columns (only visible waves)
+            if (hasAug) {
+                for (var wi = 0; wi <= 3; wi++) {
+                    if (!_waveVisible(wi)) continue;
+                    var wd = (waveDetails && waveDetails[String(wi)] && waveDetails[String(wi)].by_year && waveDetails[String(wi)].by_year[yr])
+                        ? waveDetails[String(wi)].by_year[yr] : null;
+                    // Energy
+                    rows += '<td class="col-aug">' + (wd ? wd.energy_mwh.toFixed(3) : '—') + '</td>';
+                    // Sub-columns
+                    subKeys.forEach(function (k) {
+                        var v = wd ? wd[subFieldWave[k]] : null;
+                        rows += '<td class="col-aug">' + (v != null ? v.toFixed(3) : '—') + '</td>';
+                    });
+                    // POI
+                    rows += '<td class="col-aug">' + (wd ? wd.disch_poi_mwh.toFixed(3) : '—') + '</td>';
+                }
+
+                // Cumulative
+                var cumulEnergy = d.total_energy_mwh.toFixed(3);
+                var cumulPoi = d.dischargeable_energy_poi_mwh.toFixed(3);
+                // Show "existing + new" format if a wave starts this year
+                var newE = 0, newP = 0;
+                for (var nwi = 1; nwi <= 3; nwi++) {
+                    if (waveDetails && waveDetails[String(nwi)] && waveDetails[String(nwi)].start_year == yr) {
+                        var nwd = waveDetails[String(nwi)].by_year ? waveDetails[String(nwi)].by_year[yr] : null;
+                        if (nwd) { newE += nwd.energy_mwh; newP += nwd.disch_poi_mwh; }
+                    }
+                }
+                if (newE > 0) {
+                    cumulEnergy = (d.total_energy_mwh - newE).toFixed(1) + ' + ' + newE.toFixed(1);
+                    cumulPoi = (d.dischargeable_energy_poi_mwh - newP).toFixed(1) + ' + ' + newP.toFixed(1);
+                }
+                rows += '<td class="col-aug-total" style="color:#888;">' + cumulEnergy + '</td>';
+                rows += '<td class="col-aug-highlight" style="font-weight:700;color:var(--color-primary);font-size:13px;">' + cumulPoi + '</td>';
+            }
+            rows += '</tr>';
+        });
+        tbody.innerHTML = rows;
+
+        // Also redraw chart
+        if (result.retention.curve && window.BESSCharts) {
+            var augMarkers = collectAugMarkers();
+            var reqEnergyPoi = parseFloat((document.getElementById('requiredEnergyMwh') || {}).value || 0) || 0;
+            BESSCharts.drawRetentionCurve('retentionChart', result.retention, reqEnergyPoi, augMarkers);
+        }
+    }
+
+    /** Column toggle — full rebuild */
+    window.toggleRetCol = function (cls, show) {
+        rebuildRetentionHeaders();
+        rebuildRetentionTbody();
     };
+
+    /** Sequential wave toggle: unchecking N hides N+1, N+2, ... */
+    window.onWaveToggle = function (waveIdx, checked) {
+        if (!checked) {
+            // Uncheck all higher waves
+            for (var w = waveIdx + 1; w <= 3; w++) {
+                var tog = document.getElementById('togWave' + w);
+                if (tog) { tog.checked = false; }
+            }
+        }
+        // Rebuild everything
+        rebuildRetentionHeaders();
+        rebuildRetentionTbody();
+    };
+
+    // Initialize default headers (no aug)
+    rebuildRetentionHeaders();
 
     function setText(id, val) {
         var el = document.getElementById(id);
@@ -2612,10 +2915,70 @@
                     auxProductNameEl.textContent = productName;
                 }
 
+                // Populate sizing values
+                var sizingEl = document.getElementById('auxSizingKw');
+                var fullLoadEl = document.getElementById('auxFullLoadKw');
+                var fullLoadKvaEl = document.getElementById('auxFullLoadKva');
+                var basisEl = document.getElementById('auxSizingBasis');
+                var tempWrap = document.getElementById('auxTempTableWrap');
+                var tempBody = document.getElementById('auxTempTableBody');
+                var simNote = document.getElementById('auxSimNote');
+
                 if (auxData) {
-                    if (auxPeakEl)    auxPeakEl.textContent = auxData.peak_kw.toFixed(2);
-                    if (auxStandbyEl) auxStandbyEl.textContent = auxData.standby_kw.toFixed(2);
+                    var sizingKw = auxData.sizing_kw || auxData.peak_kw || 0;
+                    if (sizingEl) sizingEl.textContent = sizingKw.toFixed(2);
+                    if (fullLoadEl) fullLoadEl.textContent = auxData.full_load_kw ? auxData.full_load_kw.toFixed(1) : '—';
+                    if (fullLoadKvaEl) fullLoadKvaEl.textContent = auxData.full_load_kva ? auxData.full_load_kva.toFixed(1) : '—';
+
+                    // Show sizing basis
+                    if (basisEl) {
+                        if (auxData.sizing_basis) {
+                            basisEl.innerHTML = '<strong>Sizing 근거:</strong> ' + auxData.sizing_basis;
+                            basisEl.style.display = '';
+                        } else {
+                            basisEl.style.display = 'none';
+                        }
+                    }
+
+                    // Temperature table
+                    if (tempBody && auxData.by_temperature && Object.keys(auxData.by_temperature).length > 0) {
+                        var rows = '';
+                        // Sort by numeric key (avg temp)
+                        var keys = Object.keys(auxData.by_temperature);
+                        keys.sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
+                        keys.forEach(function (k) {
+                            var t = auxData.by_temperature[k];
+                            // Highlight the row used for sizing (Summer 50°C = key "40")
+                            var isSizing = (t.discharge_kw === sizingKw);
+                            var style = isSizing ? 'background:#e8f5e9;font-weight:600;' : '';
+                            rows += '<tr style="' + style + '">';
+                            rows += '<td style="text-align:left;padding:5px 8px;">' + t.label + (isSizing ? ' ★' : '') + '</td>';
+                            rows += '<td style="text-align:right;padding:5px 8px;">' + t.charge_kw.toFixed(2) + '</td>';
+                            rows += '<td style="text-align:right;padding:5px 8px;">' + t.discharge_kw.toFixed(2) + '</td>';
+                            rows += '<td style="text-align:right;padding:5px 8px;">' + t.rest_kw.toFixed(2) + '</td>';
+                            rows += '<td style="text-align:right;padding:5px 8px;">' + t.daily_kwh.toFixed(1) + '</td>';
+                            rows += '</tr>';
+                        });
+                        tempBody.innerHTML = rows;
+                        tempWrap.style.display = '';
+                    } else {
+                        if (tempWrap) tempWrap.style.display = 'none';
+                    }
+
+                    // Simulation note
+                    if (simNote && auxData.simulation_note) {
+                        simNote.textContent = auxData.simulation_note;
+                    }
+
+                    // backward compat for old display IDs
+                    if (auxPeakEl)    auxPeakEl.textContent = sizingKw.toFixed(2);
+                    if (auxStandbyEl) auxStandbyEl.textContent = auxData.rest_kw || (auxData.by_temperature && auxData.by_temperature['25'] ? auxData.by_temperature['25'].rest_kw.toFixed(2) : '—');
                 } else {
+                    if (sizingEl)     sizingEl.textContent = 'N/A';
+                    if (fullLoadEl)   fullLoadEl.textContent = '—';
+                    if (fullLoadKvaEl) fullLoadKvaEl.textContent = '—';
+                    if (basisEl)      basisEl.style.display = 'none';
+                    if (tempWrap)     tempWrap.style.display = 'none';
                     if (auxPeakEl)    auxPeakEl.textContent = 'N/A';
                     if (auxStandbyEl) auxStandbyEl.textContent = 'N/A';
                 }
@@ -2653,8 +3016,142 @@
     }
     var auxPowerSourceSel = document.getElementById('auxPowerSource');
     if (auxPowerSourceSel) {
-        auxPowerSourceSel.addEventListener('change', updateAuxiliaryDisplay);
+        auxPowerSourceSel.addEventListener('change', function () {
+            updateAuxiliaryDisplay();
+            drawAuxSLD();
+        });
     }
+
+    /* ── Item #21a: Aux SLD drawing ── */
+    /**
+     * Draw Aux SLD with proper two-row layout:
+     *
+     *  Top row (main path):
+     *    PCS ─── LV Line ─── MVT ─── MV Junction ─── MV Line ───→
+     *                                      │
+     *  Bottom row (aux branch):            │
+     *    Aux Load ◄── Aux Line ◄── Aux TR ─┘
+     */
+    function drawAuxSLD() {
+        var svg = document.getElementById('auxSldSvg');
+        if (!svg) return;
+        var bp = (document.getElementById('branchingPoint') || {}).value || 'MV';
+        var auxTr = parseFloat((document.getElementById('auxTrLv') || {}).value) || 99;
+        var auxLine = parseFloat((document.getElementById('auxLineLv') || {}).value) || 99.5;
+        var peakEl = document.getElementById('auxTotalPeakKw');
+        var peakKw = peakEl ? peakEl.textContent : '—';
+
+        // Node dimensions
+        var nw = 90, nh = 36, gap = 16, rx = 6;
+        var y1 = 20;       // top row Y
+        var y2 = 120;      // bottom row Y
+        var cy1 = y1 + nh/2;
+        var cy2 = y2 + nh/2;
+
+        // ── Top row nodes ──
+        var topNodes = [
+            { label: 'PCS',         fill: '#e3f2fd', stroke: '#1976d2' },
+            { label: 'LV Line',     fill: '#f5f5f5', stroke: '#888' },
+            { label: 'MVT',         fill: '#fff3e0', stroke: '#f57c00' },
+            { label: 'MV Junction', fill: '#e8eaf6', stroke: '#3949ab' },
+            { label: 'MV Line',     fill: '#f5f5f5', stroke: '#888' },
+        ];
+        // Branch point index (MV Junction)
+        var branchIdx = 3;
+
+        var s = '';
+        // Draw top row
+        topNodes.forEach(function (n, i) {
+            var x = 10 + i * (nw + gap);
+            s += '<rect x="'+x+'" y="'+y1+'" width="'+nw+'" height="'+nh+'" rx="'+rx+'" fill="'+n.fill+'" stroke="'+n.stroke+'" stroke-width="1.5"/>';
+            s += '<text x="'+(x+nw/2)+'" y="'+(y1+nh/2+4)+'" text-anchor="middle" font-size="11" font-weight="500" fill="'+n.stroke+'">'+n.label+'</text>';
+            // Connecting line to next
+            if (i < topNodes.length - 1) {
+                s += '<line x1="'+(x+nw)+'" y1="'+cy1+'" x2="'+(x+nw+gap)+'" y2="'+cy1+'" stroke="#999" stroke-width="2"/>';
+            }
+            // Arrow at end of MV Line →
+            if (i === topNodes.length - 1) {
+                var ax = x + nw + 4;
+                s += '<polygon points="'+(ax)+','+cy1+' '+(ax+10)+','+(cy1)+' '+(ax+6)+','+(cy1-4)+'" fill="#999"/>';
+                s += '<polygon points="'+(ax)+','+cy1+' '+(ax+10)+','+(cy1)+' '+(ax+6)+','+(cy1+4)+'" fill="#999"/>';
+            }
+        });
+
+        // ── Vertical branch line from MV Junction down ──
+        var branchX = 10 + branchIdx * (nw + gap) + nw / 2;
+        s += '<line x1="'+branchX+'" y1="'+(y1+nh)+'" x2="'+branchX+'" y2="'+y2+'" stroke="#c62828" stroke-width="2" stroke-dasharray="5,3"/>';
+        // Small circle at branch point
+        s += '<circle cx="'+branchX+'" cy="'+(y1+nh)+'" r="3" fill="#c62828"/>';
+
+        // ── Bottom row nodes (right to left: Aux TR → Aux Line → Aux Load) ──
+        var botNodes = [
+            { label: 'Aux TR',   sub: auxTr + '%',    fill: '#fff3e0', stroke: '#f57c00' },
+            { label: 'Aux Line', sub: auxLine + '%',   fill: '#f5f5f5', stroke: '#666' },
+            { label: 'Aux Load', sub: peakKw + ' kW',  fill: '#fce4ec', stroke: '#c62828' },
+        ];
+        // Position: Aux TR centered under branch, then leftward
+        var auxTrX = branchX - nw / 2;
+        botNodes.forEach(function (n, i) {
+            var x = auxTrX - i * (nw + gap);
+            s += '<rect x="'+x+'" y="'+y2+'" width="'+nw+'" height="'+nh+'" rx="'+rx+'" fill="'+n.fill+'" stroke="'+n.stroke+'" stroke-width="1.5"/>';
+            s += '<text x="'+(x+nw/2)+'" y="'+(y2+14)+'" text-anchor="middle" font-size="11" font-weight="500" fill="'+n.stroke+'">'+n.label+'</text>';
+            s += '<text x="'+(x+nw/2)+'" y="'+(y2+28)+'" text-anchor="middle" font-size="10" fill="#888">'+n.sub+'</text>';
+            // Connecting line (arrow pointing left: ← )
+            if (i < botNodes.length - 1) {
+                var nx = auxTrX - (i + 1) * (nw + gap) + nw;
+                s += '<line x1="'+x+'" y1="'+cy2+'" x2="'+nx+'" y2="'+cy2+'" stroke="#999" stroke-width="2"/>';
+                // Left arrow
+                s += '<polygon points="'+(nx)+','+(cy2)+' '+(nx+6)+','+(cy2-4)+' '+(nx+6)+','+(cy2+4)+'" fill="#999"/>';
+            }
+        });
+
+        // ── Label: "Aux Power Source" ──
+        s += '<text x="'+branchX+'" y="'+(y2+nh+16)+'" text-anchor="middle" font-size="10" fill="#888" font-style="italic">Branching: ' + bp + '</text>';
+
+        svg.innerHTML = s;
+    }
+    // Initial draw
+    drawAuxSLD();
+
+    /* ── Item #21c + #13: PNG upload handlers (generic) ── */
+    function initPngUpload(dropZoneId, inputId, previewId, imgId, removeBtnId, storageKey) {
+        var dz = document.getElementById(dropZoneId);
+        var inp = document.getElementById(inputId);
+        var prev = document.getElementById(previewId);
+        var img = document.getElementById(imgId);
+        var rm = document.getElementById(removeBtnId);
+        if (!dz || !inp) return;
+
+        dz.addEventListener('click', function () { inp.click(); });
+        dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.style.borderColor = '#1976d2'; });
+        dz.addEventListener('dragleave', function () { dz.style.borderColor = ''; });
+        dz.addEventListener('drop', function (e) {
+            e.preventDefault(); dz.style.borderColor = '';
+            var f = e.dataTransfer.files[0];
+            if (f && f.type === 'image/png') loadPng(f, img, prev, storageKey);
+        });
+        inp.addEventListener('change', function () { if (inp.files[0]) loadPng(inp.files[0], img, prev, storageKey); });
+        if (rm) rm.addEventListener('click', function () {
+            prev.style.display = 'none'; img.src = '';
+            sessionStorage.removeItem(storageKey);
+        });
+        var saved = sessionStorage.getItem(storageKey);
+        if (saved) { img.src = saved; prev.style.display = 'block'; }
+    }
+
+    function loadPng(file, imgEl, prevEl, storageKey) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            imgEl.src = e.target.result;
+            prevEl.style.display = 'block';
+            sessionStorage.setItem(storageKey, e.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // Init PNG uploads
+    initPngUpload('auxPngDropZone', 'auxPngInput', 'auxPngPreview', 'auxPngImg', 'auxPngRemove', 'auxPngData');
+    initPngUpload('pqDropZone', 'pqPngInput', 'pqPngPreview', 'pqPngImg', 'pqPngRemove', 'pqPngData');
 
     // ══════════════════════════════════════════════════════════
     // UPLOAD TO SHARED DB
@@ -3275,6 +3772,9 @@
             'res-noMvt': 'no_of_mvt',
             'res-apparentPower': 'apparent_power',
             'res-gridKvar': 'grid_kvar',
+            'res-powerAtDc': 'req_power_dc_mw',
+            'res-deratedPower': 'derated_power_kva',
+            'res-noM10Order': 'required_epc_m10_qty',
             'res-socHigh': 'soc_high',
             'res-socLow': 'soc_low',
             'res-socRest': 'rest_soc',
@@ -3384,33 +3884,71 @@
         var canvas = document.getElementById('usagePatternChart');
         if (!canvas || !window.Chart) return;
 
-        // Build 24hr data points (0.5hr resolution)
-        var labels = [];
-        var data = [];
-        var bgColors = [];
-        var step = 0.5;
-        for (var h = 0; h < 24; h += step) {
-            labels.push(h.toFixed(1));
-            if (h < chargeHr) {
-                // Charging: ramp from socMin to socMax
-                var chPct = h / chargeHr;
-                data.push(socMin + (socMax - socMin) * chPct);
-                bgColors.push('rgba(76, 175, 80, 0.6)');
-            } else if (h < chargeHr + dischargeHr) {
-                // Discharging: ramp from socMax to socMin
-                var disPct = (h - chargeHr) / dischargeHr;
-                data.push(socMax - (socMax - socMin) * disPct);
-                bgColors.push('rgba(244, 67, 54, 0.6)');
-            } else {
-                // Rest
-                data.push(restSoc);
-                bgColors.push('rgba(158, 158, 158, 0.3)');
+        var cyclesPerDay = parseInt((document.getElementById('cyclesPerDay') || {}).value) || 1;
+        var cycleDuration = chargeHr + dischargeHr;
+        var totalCycleTime = cycleDuration * cyclesPerDay;
+        var restTimeTotal = Math.max(0, 24 - totalCycleTime);
+        var restPerCycle = cyclesPerDay > 0 ? restTimeTotal / cyclesPerDay : restTimeTotal;
+
+        // Build timeline points for line chart
+        var points = [];
+        var bgSegments = []; // {start, end, color, label}
+        var t = 0;
+        for (var c = 0; c < cyclesPerDay && t < 24; c++) {
+            // Charge phase
+            var chStart = t;
+            var chEnd = Math.min(t + chargeHr, 24);
+            points.push({ x: chStart, y: socMin });
+            points.push({ x: chEnd, y: socMax });
+            bgSegments.push({ start: chStart, end: chEnd, color: 'rgba(76,175,80,0.12)', label: 'Charge' });
+            t = chEnd;
+
+            // Discharge phase
+            var disStart = t;
+            var disEnd = Math.min(t + dischargeHr, 24);
+            points.push({ x: disStart, y: socMax });
+            points.push({ x: disEnd, y: socMin });
+            bgSegments.push({ start: disStart, end: disEnd, color: 'rgba(244,67,54,0.12)', label: 'Discharge' });
+            t = disEnd;
+
+            // Rest phase (between cycles or at end)
+            if (restPerCycle > 0 && t < 24) {
+                var rStart = t;
+                var rEnd = Math.min(t + restPerCycle, 24);
+                points.push({ x: rStart, y: restSoc });
+                points.push({ x: rEnd, y: restSoc });
+                bgSegments.push({ start: rStart, end: rEnd, color: 'rgba(158,158,158,0.10)', label: 'Rest' });
+                t = rEnd;
             }
+        }
+        // Fill remaining time as rest
+        if (t < 24) {
+            points.push({ x: t, y: restSoc });
+            points.push({ x: 24, y: restSoc });
+            bgSegments.push({ start: t, end: 24, color: 'rgba(158,158,158,0.10)', label: 'Rest' });
         }
 
         if (usagePatternChart) { usagePatternChart.destroy(); }
 
-        // Inline plugin for avg SOC line (no external chartjs-plugin-annotation needed)
+        // Background bands plugin
+        var bgBandsPlugin = {
+            id: 'bgBands',
+            beforeDraw: function (chart) {
+                var ctx = chart.ctx;
+                var xScale = chart.scales.x;
+                var area = chart.chartArea;
+                ctx.save();
+                bgSegments.forEach(function (seg) {
+                    var x1 = xScale.getPixelForValue(seg.start);
+                    var x2 = xScale.getPixelForValue(seg.end);
+                    ctx.fillStyle = seg.color;
+                    ctx.fillRect(x1, area.top, x2 - x1, area.bottom - area.top);
+                });
+                ctx.restore();
+            }
+        };
+
+        // Avg SOC line plugin
         var avgSocLinePlugin = {
             id: 'avgSocLine',
             afterDraw: function (chart) {
@@ -3425,7 +3963,6 @@
                 ctx.moveTo(chart.chartArea.left, yPixel);
                 ctx.lineTo(chart.chartArea.right, yPixel);
                 ctx.stroke();
-                // Label
                 ctx.fillStyle = '#FF9800';
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'right';
@@ -3435,31 +3972,29 @@
         };
 
         usagePatternChart = new Chart(canvas.getContext('2d'), {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: labels,
                 datasets: [{
                     label: 'SOC (%)',
-                    data: data,
-                    backgroundColor: bgColors,
-                    borderWidth: 0,
-                    barPercentage: 1.0,
-                    categoryPercentage: 1.0,
+                    data: points,
+                    borderColor: '#1976d2',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
                 }]
             },
-            plugins: [avgSocLinePlugin],
+            plugins: [bgBandsPlugin, avgSocLinePlugin],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
                     x: {
+                        type: 'linear',
+                        min: 0, max: 24,
                         title: { display: true, text: 'Hour', font: { size: 11 } },
-                        ticks: {
-                            callback: function (val, idx) { return idx % 4 === 0 ? labels[idx] : ''; },
-                            font: { size: 10 }
-                        },
-                        grid: { display: false }
+                        ticks: { stepSize: 2, font: { size: 10 } }
                     },
                     y: {
                         min: 0, max: 100,

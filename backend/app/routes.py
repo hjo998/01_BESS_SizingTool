@@ -488,16 +488,27 @@ def _run_calculation(body: dict) -> dict:
                 for y in range(project_years + 1)
             ]
 
+        # RTE uses PURE chain efficiency (without aux deduction) from efficiency.py.
+        # power_flow's chain_eff already has aux subtracted — don't use it for RTE.
+        # Aux is handled separately in the MV-centric energy balance inside rte.py.
+        eff_chain = eff_result.total_bat_poi_eff  # pure 7-stage product
+        # Segment efficiencies for DC→MV and MV→POI
+        _dc_to_mv = (sys_inp.dc_cabling * sys_inp.pcs_efficiency *
+                      sys_inp.lv_cabling * sys_inp.mv_transformer *
+                      sys_inp.mv_ac_cabling)
+        _mv_to_poi = sys_inp.hv_transformer * sys_inp.hv_ac_cabling
+        _dc_to_pcs = sys_inp.dc_cabling * sys_inp.pcs_efficiency
+
         rte_inp = RTEInput(
-            chain_eff_to_pcs=pf_result.chain_eff_to_poi,  # approximate: PCS ~ POI chain for now
-            chain_eff_to_mv=pf_result.chain_eff_to_mv,
-            chain_eff_to_poi=pf_result.chain_eff_to_poi,
+            chain_eff_to_pcs=_dc_to_pcs,
+            chain_eff_to_mv=_dc_to_mv,
+            chain_eff_to_poi=eff_chain,
             dc_rte_by_year=[float(x) for x in dc_rte_array],
             t_discharge_hr=float(body.get('duration_hours', 4)),
             t_rest_hr=float(body.get('rte_rest_hours', 0.25)),
-            aux_power_at_pcs_mw=0.0,  # TODO: derive from power flow
+            aux_power_at_pcs_mw=0.0,
             aux_power_at_mv_mw=pf_result.aux_power_at_mv_mw,
-            aux_power_at_poi_mw=pf_result.aux_power_at_mv_mw,  # approximate
+            aux_power_at_poi_mw=0.0,  # aux only at MV, not duplicated
             p_rated_at_poi_mw=required_power_poi,
         )
         rte_calc = calculate_rte(rte_inp)
@@ -578,7 +589,7 @@ def _run_calculation(body: dict) -> dict:
             'no_of_racks': bat_result.no_of_racks,
             'no_of_mvt': bat_result.no_of_mvt,
             'no_of_skid': bat_result.no_of_pcs,
-            'no_of_m10_order': _calc_m10_order(pcs_result, bat_result.no_of_pcs),
+            'required_epc_m10_qty': _calc_m10_order(pcs_result, bat_result.no_of_pcs),
             'no_of_transformer_blocks': bat_result.no_of_mvt,
             'installation_energy_dc_mwh': bat_result.installation_energy_dc_mwh,
             'dischargeable_energy_poi_mwh': bat_result.dischargeable_energy_poi_mwh,
@@ -1367,8 +1378,8 @@ def api_admin_params_update(category: str):
         if not isinstance(new_data, dict):
             return jsonify({'error': 'aux_consumption must be an object'}), 400
         for key, val in new_data.items():
-            if not isinstance(val, dict) or 'peak_kw' not in val or 'standby_kw' not in val:
-                return jsonify({'error': f'Each product must have peak_kw and standby_kw: {key}'}), 400
+            if not isinstance(val, dict) or ('sizing_kw' not in val and 'peak_kw' not in val):
+                return jsonify({'error': f'Each product must have sizing_kw (or peak_kw): {key}'}), 400
     elif category == 'products':
         if not isinstance(new_data, dict):
             return jsonify({'error': 'products must be an object'}), 400

@@ -6,7 +6,9 @@
     "gen": "Gen3 (%)",
     "nameplate_energy_mwh": 5.112,
     "soc_max": 1.00,
-    "soc_min": 0.00
+    "soc_min": 0.00,
+    "racks_per_link": 6,
+    "modules_per_rack": 16
   },
   "JF2 0.25 AC LINK": {
     "module_type": "EP096636PFB1",
@@ -15,7 +17,9 @@
     "gen": "Gen3 (%)",
     "nameplate_energy_mwh": 5.112,
     "soc_max": 1.00,
-    "soc_min": 0.00
+    "soc_min": 0.00,
+    "racks_per_link": 6,
+    "modules_per_rack": 16
   },
   "JF3 0.25 DC LINK": {
     "module_type": "NA",
@@ -24,6 +28,8 @@
     "gen": "Gen3 (%)",
     "nameplate_energy_mwh": 5.554,
     "soc_max": 1.00,
-    "soc_min": 0.00
+    "soc_min": 0.00,
+    "racks_per_link": 6,
+    "modules_per_rack": 18
   }
 }

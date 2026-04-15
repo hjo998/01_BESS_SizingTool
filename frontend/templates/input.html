@@ -277,6 +277,7 @@
         <button type="button" class="btn btn--sm btn--outline eff-preset-btn" data-preset="conservative">Conservative</button>
         <button type="button" class="btn btn--sm btn--outline eff-preset-btn" data-preset="optimistic">Optimistic</button>
         <button type="button" class="btn btn--sm btn--outline eff-preset-btn active" data-preset="default">Default (v1.6.7)</button>
+        <button type="button" class="btn btn--sm btn--outline" id="editDefaultsBtn" style="margin-left:8px;border-style:dashed;">Edit Defaults</button>
     </div>
 
     <!-- ── Two-Column Layout: Main (left) | Aux (right) ── -->
@@ -504,8 +505,10 @@
         </div>
     </div>
 
+    <!-- Item #5: Loss Breakdown + Preview 5:5 ratio -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
     <!-- Loss Waterfall Bar -->
-    <div class="eff-waterfall" id="effWaterfall">
+    <div class="eff-waterfall" id="effWaterfall" style="margin-top:0;">
         <div class="eff-waterfall__title">Loss Breakdown (per 100 MW input)</div>
         <div class="eff-waterfall__bar" id="waterfallBar">
             <!-- Segments injected by JS -->
@@ -516,7 +519,7 @@
     </div>
 
     <!-- Live Efficiency Preview (Enhanced) -->
-    <div class="eff-preview" id="effPreview">
+    <div class="eff-preview" id="effPreview" style="margin-top:0;">
         <div class="eff-item">
             <span class="eff-item__label">Total Bat-POI Eff.</span>
             <span class="eff-item__value" id="totalBatPoiEff">—</span>
@@ -538,6 +541,7 @@
             <span class="eff-item__value" id="totalLossPercent">—</span>
         </div>
     </div>
+    </div><!-- end 5:5 grid -->
 
     <!-- Efficiency Formula Breakdown (toggle) -->
     <div class="eff-formula-toggle">
@@ -605,6 +609,21 @@
                 <div class="form-section-title" style="margin-bottom:8px;">Selected Specifications</div>
                 <div id="productSpecList"></div>
             </div>
+
+            <!-- Item #18: PCS Derating Info -->
+            <div id="pcsDeratingInfo" class="form-section form-section--compact" style="display:none;margin-top:12px;">
+                <div class="form-section-title">PCS Derating (Temperature / Altitude)</div>
+                <div id="pcsDeratingContent"></div>
+            </div>
+
+            <!-- Item #19: Minimum increment explanation -->
+            <div id="minIncrementInfo" class="form-section form-section--compact" style="margin-top:12px;display:none;">
+                <div style="font-size:12px;color:#666;line-height:1.6;background:#f8f9fa;border-radius:6px;padding:10px 12px;">
+                    <strong>최소 증가 단위:</strong><br>
+                    Battery: <span id="minIncrBattery">1 LINK</span><br>
+                    PCS: <span id="minIncrPcs">—</span>
+                </div>
+            </div>
         </div>
 
         <!-- RIGHT: Topology Diagram -->
@@ -662,17 +681,48 @@
                 <div id="auxProductName" style="font-size:14px;font-weight:600;color:#1a1a2e;margin-bottom:12px;">
                     No product selected — select a battery product in Tab 3.
                 </div>
-                <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);gap:12px;">
-                    <div class="stat-card" style="padding:16px;">
-                        <div class="stat-card__label">Peak Consumption</div>
-                        <div class="stat-card__value" id="auxPeakKw">—</div>
+
+                <!-- Sizing value (used in calculation) -->
+                <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:12px;">
+                    <div class="stat-card" style="padding:16px;border-left:3px solid var(--color-primary);">
+                        <div class="stat-card__label">Sizing Power</div>
+                        <div class="stat-card__value" id="auxSizingKw">—</div>
                         <div class="stat-card__unit">kW per LINK</div>
                     </div>
                     <div class="stat-card" style="padding:16px;">
-                        <div class="stat-card__label">Standby Consumption</div>
-                        <div class="stat-card__value" id="auxStandbyKw">—</div>
+                        <div class="stat-card__label">Full Load Power</div>
+                        <div class="stat-card__value" id="auxFullLoadKw">—</div>
                         <div class="stat-card__unit">kW per LINK</div>
                     </div>
+                    <div class="stat-card" style="padding:16px;">
+                        <div class="stat-card__label">Full Load Apparent</div>
+                        <div class="stat-card__value" id="auxFullLoadKva">—</div>
+                        <div class="stat-card__unit">kVA per LINK</div>
+                    </div>
+                </div>
+
+                <!-- Sizing basis explanation -->
+                <div id="auxSizingBasis" style="display:none;margin-top:10px;font-size:12px;line-height:1.6;color:#555;background:#f0f7f4;border-radius:6px;padding:10px 12px;border-left:3px solid var(--color-primary);">
+                </div>
+
+                <!-- Temperature-dependent table -->
+                <div id="auxTempTableWrap" style="display:none;margin-top:12px;">
+                    <div class="form-section-title" style="font-size:12px;">Energy Consumption by Temperature (per LINK)</div>
+                    <div style="overflow-x:auto;">
+                        <table class="eng-table" style="font-size:11px;width:100%;" id="auxTempTable">
+                            <thead>
+                                <tr style="background:#f8fafc;">
+                                    <th style="text-align:left;padding:6px 8px;">Condition</th>
+                                    <th style="text-align:right;padding:6px 8px;">Charge<br>(kW)</th>
+                                    <th style="text-align:right;padding:6px 8px;">Discharge<br>(kW)</th>
+                                    <th style="text-align:right;padding:6px 8px;">Rest<br>(kW)</th>
+                                    <th style="text-align:right;padding:6px 8px;">Daily Total<br>(kWh/day)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auxTempTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="auxSimNote" style="font-size:10px;color:#999;margin-top:6px;font-style:italic;"></div>
                 </div>
             </div>
 
@@ -742,6 +792,44 @@
                         Current Aux Power Source: <strong id="auxSourceDisplay">—</strong>
                     </p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 21a: Auxiliary Power Path SLD -->
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">Auxiliary Power Path — SLD</div>
+        <div class="card-body" style="text-align:center;">
+            <svg id="auxSldSvg" width="100%" height="200" viewBox="0 0 700 180"></svg>
+        </div>
+    </div>
+
+    <!-- 21b: Sizing Aux vs RTE Aux explanation -->
+    <details class="card" style="margin-top:1rem;">
+        <summary class="card-header" style="cursor:pointer;">Sizing Aux vs RTE Aux — 차이 설명 ▸</summary>
+        <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div style="padding:1rem;background:var(--bg-secondary,#f8f9fa);border-radius:8px;">
+                <h4 style="margin:0 0 .5rem;font-size:14px;">Sizing Aux (Peak)</h4>
+                <p style="margin:0;font-size:.9rem;line-height:1.6;">장비 용량 산정에 사용되는 <strong>피크 소비전력</strong>입니다. HVAC, 펌프 등이 모두 최대 부하로 동작하는 순간의 전력으로, PCS/Transformer 용량을 결정할 때 사용합니다.</p>
+            </div>
+            <div style="padding:1rem;background:var(--bg-secondary,#f8f9fa);border-radius:8px;">
+                <h4 style="margin:0 0 .5rem;font-size:14px;">RTE Aux (Time-weighted)</h4>
+                <p style="margin:0;font-size:.9rem;line-height:1.6;">Round-Trip Efficiency 계산에 사용되는 <strong>시간 가중 평균 소비 에너지</strong>입니다. 충전/방전/대기 각 구간의 aux 소비를 시간 비율로 가중 평균하여, 실제 에너지 손실을 반영합니다.</p>
+            </div>
+        </div>
+    </details>
+
+    <!-- 21c: Temperature-dependent Aux PNG upload -->
+    <div class="card" style="margin-top:1rem;">
+        <div class="card-header">온도별 Aux 소비 차트 (PNG 업로드)</div>
+        <div class="card-body">
+            <div id="auxPngDropZone" style="border:2px dashed var(--border-color,#dee2e6);border-radius:8px;padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s;">
+                <p style="margin:0;color:var(--text-secondary,#6c757d);">PNG 파일을 드래그하거나 클릭하여 업로드</p>
+                <input type="file" id="auxPngInput" accept="image/png" style="display:none;">
+            </div>
+            <div id="auxPngPreview" style="margin-top:1rem;text-align:center;display:none;">
+                <img id="auxPngImg" style="max-width:100%;border-radius:8px;border:1px solid var(--border-color,#dee2e6);">
+                <br><button id="auxPngRemove" class="btn btn-sm" style="margin-top:.5rem;color:var(--danger,#dc3545);">이미지 제거</button>
             </div>
         </div>
     </div>
@@ -982,6 +1070,21 @@
         <span id="pf-ref-mv-p"></span><span id="pf-ref-mv-q"></span><span id="pf-ref-mv-s"></span><span id="pf-ref-mv-pf"></span>
         <span id="pf-ref-pcs-p"></span><span id="pf-ref-pcs-q"></span><span id="pf-ref-pcs-s"></span><span id="pf-ref-pcs-pf"></span>
     </div>
+
+    <!-- Item #13: PCS P-Q Capability Curve PNG Upload -->
+    <div class="card" style="margin-top:1.5rem;">
+        <div class="card-header">PCS P-Q Capability Curve (PNG)</div>
+        <div class="card-body">
+            <div id="pqDropZone" style="border:2px dashed var(--border-color,#dee2e6);border-radius:8px;padding:2rem;text-align:center;cursor:pointer;transition:border-color .2s;">
+                <p style="margin:0;color:var(--text-secondary,#6c757d);">P-Q curve PNG를 드래그하거나 클릭하여 업로드</p>
+                <input type="file" id="pqPngInput" accept="image/png" style="display:none;">
+            </div>
+            <div id="pqPngPreview" style="margin-top:1rem;text-align:center;display:none;">
+                <img id="pqPngImg" style="max-width:100%;border-radius:8px;border:1px solid var(--border-color,#dee2e6);">
+                <br><button id="pqPngRemove" class="btn btn-sm" style="margin-top:.5rem;color:var(--danger,#dc3545);">이미지 제거</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -1100,7 +1203,7 @@
                     <tr><td class="eng-table__label">Derated Power</td><td class="eng-table__value" id="res-deratedPower">—</td><td class="eng-table__unit">kVA</td></tr>
                     <tr><td class="eng-table__label">PCS Unit Power</td><td class="eng-table__value" id="res-pcsUnitPower">—</td><td class="eng-table__unit">MW</td></tr>
                     <tr><td class="eng-table__label">No. of PCS</td><td class="eng-table__value" id="res-detailNoPcs">—</td><td class="eng-table__unit">units</td></tr>
-                    <tr id="row-m10Order" style="display:none;"><td class="eng-table__label" style="font-weight:700;color:var(--color-primary);">M10 Order Qty</td><td class="eng-table__value" id="res-noM10Order" style="font-weight:700;">—</td><td class="eng-table__unit">units</td></tr>
+                    <tr id="row-m10Order" style="display:none;"><td class="eng-table__label" style="font-weight:700;color:var(--color-primary);">Required EPC M10 Qty</td><td class="eng-table__value" id="res-noM10Order" style="font-weight:700;">—</td><td class="eng-table__unit">units</td></tr>
                     <tr><td class="eng-table__label">No. of MVT</td><td class="eng-table__value" id="res-noMvt">—</td><td class="eng-table__unit">units</td></tr>
                     <tr><td class="eng-table__label">Transformer Blocks</td><td class="eng-table__value" id="res-noTransBlocks">—</td><td class="eng-table__unit">sets</td></tr>
                     <tr><td class="eng-table__label">No. of Skid (Powerblock)</td><td class="eng-table__value" id="res-noSkid">—</td><td class="eng-table__unit">sets</td></tr>
@@ -1130,8 +1233,9 @@
             <div class="card-title">Reactive Power</div>
             <table class="eng-table">
                 <tbody>
-                    <tr><td class="eng-table__label">Total Apparent Power @POI</td><td class="eng-table__value" id="res-apparentPower">—</td><td class="eng-table__unit">kVA</td></tr>
-                    <tr><td class="eng-table__label">PF at MV</td><td class="eng-table__value" id="res-pfMv">—</td><td class="eng-table__unit"></td></tr>
+                    <tr><td class="eng-table__label">Total S @POI</td><td class="eng-table__value" id="res-apparentPower">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">Required S @POI</td><td class="eng-table__value" id="res-requiredSpoi">—</td><td class="eng-table__unit">kVA</td></tr>
+                    <tr><td class="eng-table__label">PF at PCS</td><td class="eng-table__value" id="res-pfPcs">—</td><td class="eng-table__unit"></td></tr>
                     <tr><td class="eng-table__label">PCS Sufficient</td><td class="eng-table__value" id="res-pcsSufficient">—</td><td class="eng-table__unit"></td></tr>
                     <tr><td class="eng-table__label">Available S Total</td><td class="eng-table__value" id="res-availableS">—</td><td class="eng-table__unit">kVA</td></tr>
                     <tr><td class="eng-table__label">Grid kVAR</td><td class="eng-table__value" id="res-gridKvar">—</td><td class="eng-table__unit">kVAR</td></tr>
@@ -1203,44 +1307,26 @@
                 <label style="display:flex;align-items:center;gap:3px;cursor:pointer;">
                     <input type="checkbox" id="togColThroughput" onchange="toggleRetCol('colThroughput', this.checked)"> Throughput
                 </label>
-                <span class="colAug ret-toggle-sep" style="display:none;"></span>
-                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
-                    <input type="checkbox" id="togWave0" onchange="toggleRetCol('colWave0', this.checked)" checked> Initial
+                <span class="colAug ret-toggle-sep" style="display:none;border-left:1px solid #ccc;margin:0 4px;"></span>
+                <!-- Initial is always shown (no toggle). Aug 1→2→3 sequential. -->
+                <label class="colAug" id="togWave1Label" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave1" onchange="onWaveToggle(1, this.checked)" checked> Aug 1
                 </label>
-                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
-                    <input type="checkbox" id="togWave1" onchange="toggleRetCol('colWave1', this.checked)" checked> Aug 1
+                <label class="colAug" id="togWave2Label" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave2" onchange="onWaveToggle(2, this.checked)" checked> Aug 2
                 </label>
-                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
-                    <input type="checkbox" id="togWave2" onchange="toggleRetCol('colWave2', this.checked)" checked> Aug 2
-                </label>
-                <label class="colAug" style="display:none;align-items:center;gap:3px;cursor:pointer;">
-                    <input type="checkbox" id="togWave3" onchange="toggleRetCol('colWave3', this.checked)" checked> Aug 3
+                <label class="colAug" id="togWave3Label" style="display:none;align-items:center;gap:3px;cursor:pointer;">
+                    <input type="checkbox" id="togWave3" onchange="onWaveToggle(3, this.checked)" checked> Aug 3
                 </label>
             </div>
         </div>
         <div class="retention-table__wrap">
             <table class="retention-table">
                 <thead>
-                    <tr>
-                        <th>Year</th>
-                        <th>Retention<br>%</th>
-                        <th>Total<br>Energy<br>(MWh)</th>
-                        <th class="colDc" style="display:none;">Disch.<br>@DC<br>(MWh)</th>
-                        <th class="colDcAux" style="display:none;">Disch.<br>@DC-Aux<br>(MWh)</th>
-                        <th class="colMv" style="display:none;">Disch.<br>@MV<br>(MWh)</th>
-                        <th>Disch.<br>@POI<br>(MWh)</th>
-                        <th class="colThroughput" style="display:none;">Annual<br>Throughput<br>(MWh)</th>
-                        <th class="colAug colWave0 col-aug-header" style="display:none;">Initial<br>Energy<br>(MWh)</th>
-                        <th class="colAug colWave0 col-aug-header" style="display:none;">Initial<br>Disch.<br>@POI</th>
-                        <th class="colAug colWave1 col-aug-header" style="display:none;">Aug 1<br>Energy<br>(MWh)</th>
-                        <th class="colAug colWave1 col-aug-header" style="display:none;">Aug 1<br>Disch.<br>@POI</th>
-                        <th class="colAug colWave2 col-aug-header" style="display:none;">Aug 2<br>Energy<br>(MWh)</th>
-                        <th class="colAug colWave2 col-aug-header" style="display:none;">Aug 2<br>Disch.<br>@POI</th>
-                        <th class="colAug colWave3 col-aug-header" style="display:none;">Aug 3<br>Energy<br>(MWh)</th>
-                        <th class="colAug colWave3 col-aug-header" style="display:none;">Aug 3<br>Disch.<br>@POI</th>
-                        <th class="colAug col-aug-header" style="display:none;">Cumul.<br>Total<br>Energy</th>
-                        <th class="colAug col-aug-header col-aug-highlight-hdr" style="display:none;">Cumul.<br>Disch.<br>@POI</th>
-                    </tr>
+                    <!-- Row 1: Group header — JS rebuilds this entirely via buildGroupHeaderRow() -->
+                    <tr id="retGroupRow" style="display:none;"></tr>
+                    <!-- Row 2: Detail header — JS rebuilds this entirely via buildDetailHeaderRow() -->
+                    <tr id="retDetailRow"></tr>
                 </thead>
                 <tbody id="retentionTableBody">
                     <tr><td colspan="7" class="text-center text-muted">No data yet</td></tr>
@@ -1251,7 +1337,13 @@
 
     <!-- Retention Chart (below table) -->
     <div class="card">
-        <div class="card-title">Dischargeable Energy @POI</div>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Dischargeable Energy at POI — Year-by-Year</span>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:400;cursor:pointer;">
+                <input type="checkbox" id="togRequiredLine" checked onchange="BESSCharts.toggleRequiredLine(this.checked)">
+                Required Energy Line
+            </label>
+        </div>
         <div class="chart-wrap">
             <canvas id="retentionChart" height="320"></canvas>
         </div>
