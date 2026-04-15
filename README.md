@@ -21,7 +21,6 @@
 ## 3. 폴더 구조
 
 ```
-01_BESS_SizingTool/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py            # Flask app factory
@@ -149,7 +148,6 @@ sizing.db (SQLite, WAL mode)
 
 ### 개발 (Mac)
 ```bash
-cd 01_BESS_SizingTool
 pip install -r requirements.txt
 python run.py --port 5001
 # → http://localhost:5001

@@ -244,7 +244,6 @@ Inverter Level:
 
 ### 5.1 모듈 구조
 ```
-01_BESS_SizingTool/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
