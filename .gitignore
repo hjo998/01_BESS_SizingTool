@@ -1,0 +1,33 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+
+# Environment
+.env
+*.env.local
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wheels (offline deployment packages)
+wheels/
+
+# Local state
+.bkit/
+.omc/
+.claude/
+=*
