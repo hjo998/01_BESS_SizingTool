@@ -7,7 +7,7 @@ Uses fixed-point iteration with damping to converge on a stable CP-rate/SOC pair
 Typically converges in 3-5 iterations. Divergence is physically unlikely (negative
 feedback loop), but adaptive damping handles edge cases defensively.
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 from .efficiency import (
@@ -409,14 +409,10 @@ def iterative_sizing_with_soc(inp: ConvergenceInput) -> ConvergenceResult:
             # Oscillating between values — pick the larger one
             larger_links = max(links_history_set | {current_links})
             # Force the larger count via link_override and do a final pass
-            saved_override = inp.link_override
-            try:
-                inp.link_override = larger_links
-                eff_result, pcs_result, bat_result = run_sizing_pass(
-                    inp, applied_dod, oversizing_retention_rate
-                )
-            finally:
-                inp.link_override = saved_override
+            modified_inp = replace(inp, link_override=larger_links)
+            eff_result, pcs_result, bat_result = run_sizing_pass(
+                modified_inp, applied_dod, oversizing_retention_rate
+            )
             cp_rate = bat_result.cp_rate
             final_delta = abs_delta
             converged = True

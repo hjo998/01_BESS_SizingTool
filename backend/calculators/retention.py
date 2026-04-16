@@ -109,6 +109,8 @@ def _find_nearest_cp_in_table(table_data: dict, target_cp: float) -> dict:
     best_diff = float('inf')
 
     for key, entry in table_data.items():
+        if entry.get("cp_rate") is None:
+            continue
         diff = abs(entry["cp_rate"] - target_cp)
         if diff < best_diff:
             best_diff = diff

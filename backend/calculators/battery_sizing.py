@@ -92,6 +92,10 @@ def _derive_racks_per_link(product_type: str, product_specs: dict) -> int:
     This suggests nameplate includes module-level adjustments.
     We use the test case value: JF3 = 6 racks/LINK.
     """
+    # Primary: use racks_per_link from product specs if available
+    if "racks_per_link" in product_specs and product_specs["racks_per_link"] is not None:
+        return int(product_specs["racks_per_link"])
+
     # Known mappings from Excel Design tool
     known_racks = {
         "JF3 0.25 DC LINK": 6,
