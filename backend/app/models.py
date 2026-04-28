@@ -14,7 +14,7 @@ def _resolve_pcs_product(config_name):
     if not config_name:
         return None
     try:
-        with open(os.path.join(_DATA_DIR, 'pcs_config_map.json'), 'r') as f:
+        with open(os.path.join(_DATA_DIR, 'pcs_config_map.json'), 'r', encoding='utf-8') as f:
             entries = json.load(f)
         for e in entries:
             if e.get('config_name') == config_name:

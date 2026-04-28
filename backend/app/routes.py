@@ -427,11 +427,11 @@ def api_products_list():
     data_dir = os.path.join(os.path.dirname(__file__), '..', 'data')
 
     try:
-        with open(os.path.join(data_dir, 'products.json')) as f:
+        with open(os.path.join(data_dir, 'products.json'), encoding='utf-8') as f:
             products = json.load(f)
-        with open(os.path.join(data_dir, 'pcs_config_map.json')) as f:
+        with open(os.path.join(data_dir, 'pcs_config_map.json'), encoding='utf-8') as f:
             pcs_configs = json.load(f)
-        with open(os.path.join(data_dir, 'aux_consumption.json')) as f:
+        with open(os.path.join(data_dir, 'aux_consumption.json'), encoding='utf-8') as f:
             aux_consumption = json.load(f)
 
         # Format for frontend dropdowns

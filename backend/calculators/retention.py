@@ -19,7 +19,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
 def _load_json(filename: str):
     filepath = os.path.join(DATA_DIR, filename)
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
