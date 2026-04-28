@@ -111,4 +111,9 @@ def create_app():
     from .shared_routes import shared_bp
     app.register_blueprint(shared_bp)
 
+    # Healthcheck (Docker/로드밸런서용, 인증 불필요)
+    @app.route('/health')
+    def health():
+        return {'status': 'ok'}, 200
+
     return app
